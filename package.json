@@ -1,0 +1,13 @@
+{
+  "name": "indexer",
+  "version": "0.1.0",
+  "description": "Media indexer, converter and tagger",
+  "main": "index.js",
+  "repository": "git@github.com:mdbarr/indexer.git",
+  "author": "Mark Barr <mark@hyperingenuity.com>",
+  "license": "MIT",
+  "private": false,
+  "dependencies": {
+    "barrkeep": "^2.4.0"
+  }
+}
