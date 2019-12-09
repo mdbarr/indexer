@@ -6,10 +6,12 @@ const glob = require('glob');
 const async = require('async');
 const utils = require('barrkeep/utils');
 const { execFile } = require('child_process');
+const MongoClient = require('mongodb').MongoClient;
 
 const defaults = {
   cwd: process.cwd(),
   pattern: '**/*.{avi,flv,mkv,mp4,wmv}',
+  db: 'mongodb://localhost:27017/indexer',
   concurrency: 1,
   hasher: '/usr/bin/sha1sum'
 };
@@ -50,9 +52,7 @@ function Indexer (options = {}) {
   console.pp(this.config);
 
   this.scan = (callback) => {
-    callback = utils.callback(callback);
-
-    glob(this.config.pattern, {
+    return glob(this.config.pattern, {
       absolute: true,
       cwd: this.config.cwd,
       nodir: true
@@ -65,7 +65,36 @@ function Indexer (options = {}) {
         this.queue.push(file);
       }
 
-      return files;
+      return this.queue.drain(() => {
+        console.log('Done.');
+        return callback();
+      });
+    });
+  };
+
+  this.start = (callback) => {
+    callback = utils.callback(callback);
+
+    this.client = new MongoClient(this.config.db, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true
+    });
+
+    return this.client.connect((error) => {
+      if (error) {
+        return callback(error);
+      }
+
+      this.db = this.client.db();
+      this.media = this.db.collection('media');
+
+      return this.scan((error) => {
+        if (error) {
+          return callback(error);
+        }
+
+        return this.client.close(callback);
+      });
     });
   };
 }

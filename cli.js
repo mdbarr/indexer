@@ -35,4 +35,4 @@ if (args.hasher) {
 //////////
 
 const indexer = new Indexer(config);
-indexer.scan();
+indexer.start();
