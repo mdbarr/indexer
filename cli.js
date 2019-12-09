@@ -24,6 +24,14 @@ if (args.pattern) {
   config.pattern = args.pattern;
 }
 
+if (args.concurrency) {
+  config.concurrency = args.concurrency;
+}
+
+if (args.hasher) {
+  config.hasher = args.hasher;
+}
+
 //////////
 
 const indexer = new Indexer(config);
