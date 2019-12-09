@@ -52,6 +52,7 @@ function Indexer (options = {}) {
   console.pp(this.config);
 
   this.scan = (callback) => {
+    console.log(' - scanning...');
     return glob(this.config.pattern, {
       absolute: true,
       cwd: this.config.cwd,
@@ -61,6 +62,9 @@ function Indexer (options = {}) {
         return callback(error);
       }
 
+      console.log(` - scan found ${ files.length } candidates.`);
+
+      console.log(' - processing...');
       for (const file of files) {
         this.queue.push(file);
       }
@@ -75,11 +79,14 @@ function Indexer (options = {}) {
   this.start = (callback) => {
     callback = utils.callback(callback);
 
+    console.log(`Indexer v${ this.version } starting up...`);
+
     this.client = new MongoClient(this.config.db, {
       useNewUrlParser: true,
       useUnifiedTopology: true
     });
 
+    console.log(` - connecting to ${ this.config.db }...`);
     return this.client.connect((error) => {
       if (error) {
         return callback(error);
