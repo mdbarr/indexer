@@ -10,7 +10,7 @@ const MongoClient = require('mongodb').MongoClient;
 
 const defaults = {
   cwd: process.cwd(),
-  pattern: '**/*.{avi,flv,mkv,mp4,wmv}',
+  pattern: '**/*.{asf,avi,flv,mkv,mpg,mp4,m4v,wmv}',
   db: 'mongodb://localhost:27017/indexer',
   concurrency: 1,
   hasher: '/usr/bin/sha1sum'
