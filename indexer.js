@@ -109,8 +109,6 @@ function Indexer (options = {}) {
     });
   }, this.config.concurrency);
 
-  console.pp(this.config);
-
   this.scan = (callback) => {
     console.log(' - scanning...');
     return glob(this.config.pattern, {
