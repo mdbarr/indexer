@@ -2,23 +2,36 @@
 
 require('barrkeep/pp');
 const fs = require('fs');
+const os = require('os');
 const glob = require('glob');
 const async = require('async');
+const uuid = require('uuid/v4');
+const { join } = require('path');
 const utils = require('barrkeep/utils');
-const { execFile } = require('child_process');
 const MongoClient = require('mongodb').MongoClient;
+const {
+  execFile, spawn
+} = require('child_process');
 
 const defaults = {
   cwd: process.cwd(),
   pattern: '**/*.{asf,avi,flv,mkv,mpg,mp4,m4v,wmv}',
   db: 'mongodb://localhost:27017/indexer',
   concurrency: 1,
-  hasher: '/usr/bin/sha1sum'
+  hasher: '/usr/bin/sha1sum',
+  converter: 'ffmpeg -i $input -f $format -vcodec libx264 -preset fast' +
+    ' -profile:v main -acodec aac $output -hide_banner',
+  format: 'mp4',
+  tmpdir: os.tmpdir()
 };
 
 function Indexer (options = {}) {
   this.version = require('./package.json').version;
   this.config = utils.merge(defaults, options);
+
+  this.lookup = (hash, callback) => {
+    return this.media.findOne({ hash }, callback);
+  };
 
   this.queue = async.queue((file, callback) => {
     return fs.stat(file, (error, stat) => {
@@ -35,16 +48,63 @@ function Indexer (options = {}) {
         const [ hash ] = stdout.trim().split(/\s+/);
 
         const original = {
-          id: hash,
-          path: file,
+          hash,
+          file,
+          path: file.replace(/\/([^/]+)$/, '/'),
           name,
           extension,
           size: stat.size,
           timestamp: new Date(stat.mtime).getTime()
         };
 
-        console.pp(original);
-        return callback();
+        return this.lookup(hash, (error, item) => {
+          if (error) {
+            return callback(error);
+          }
+
+          if (item) { // found
+            console.log(`  - match for ${ hash } found`);
+            console.pp(original);
+            return callback();
+          } // convert
+          const id = uuid();
+          const output = join(this.config.tmpdir, `${ id }.${ this.config.format }`);
+
+          const args = this.config.converter.
+            trim().
+            split(/\s+/).
+            map((arg) => {
+              return arg.replace('$input', file).
+                replace('$output', output).
+                replace('$format', this.config.format);
+            });
+
+          const command = args.shift();
+
+          console.log(` * converting ${ name }.${ extension } ...`);
+
+          const convert = spawn(command, args);
+
+          // convert.stderr.on('data', (data) => {
+          //   console.log(data.toString());
+          // });
+
+          // convert.stdout.on('data', (data) => {
+          //   console.log(data.toString());
+          // });
+
+          convert.on('close', (code) => {
+            if (code === 0) {
+              console.log(` * converted ${ name }.${ extension }!`);
+            } else {
+              console.log(` ! failed to convert ${ name }.${ extension }`);
+            }
+
+            return callback();
+          });
+
+          return convert;
+        });
       });
     });
   }, this.config.concurrency);
