@@ -15,7 +15,7 @@ const {
 } = require('child_process');
 
 const defaults = {
-  cwd: process.cwd(),
+  scan: process.cwd(),
   pattern: '**/*.{asf,avi,flv,mkv,mpg,mp4,m4v,wmv,3gp}',
   db: 'mongodb://localhost:27017/indexer',
   concurrency: 1,
@@ -23,12 +23,31 @@ const defaults = {
   converter: 'ffmpeg -i $input -f $format -vcodec libx264 -preset fast' +
     ' -profile:v main -acodec aac $output -hide_banner -y',
   format: 'mp4',
-  tmpdir: os.tmpdir()
+  save: join(os.tmpdir(), 'indexer')
 };
 
 function Indexer (options = {}) {
   this.version = require('./package.json').version;
   this.config = utils.merge(defaults, options);
+
+  this.model = ({
+    id, original, output, converted
+  }) => {
+    const model = {
+      id,
+      hash: original.hash,
+      relative: output.replace(this.config.save, ''),
+      size: converted.size,
+      timestamp: new Date(converted.mtime).getTime(),
+      metadata: {
+        original,
+        duplicates: []
+      },
+      tags: [ ]
+    };
+
+    return model;
+  };
 
   this.lookup = (hash, callback) => {
     return this.media.findOne({ hash }, callback);
@@ -73,38 +92,60 @@ function Indexer (options = {}) {
             return callback();
           } // convert
           const id = uuid();
-          const output = join(this.config.tmpdir, `${ id }.${ this.config.format }`);
 
-          const args = this.config.converter.
-            trim().
-            split(/\s+/).
-            map((arg) => {
-              return arg.replace('$input', file).
-                replace('$output', output).
-                replace('$format', this.config.format);
-            });
+          const directory = join(this.config.save, id.substring(0, 2));
+          const filename = id.substring(2).replace(/-/g, '');
 
-          const command = args.shift();
+          const output = join(directory, `${ filename }.${ this.config.format }`);
 
-          this.log(` * converting ${ name }.${ extension } ...`);
-
-          const convert = spawn(command, args, {
-            stdio: 'ignore'
-          });
-
-          convert.on('exit', (code) => {
-            this.progress.progress(1);
-
-            if (code !== 0) {
-              this.log(` ! failed to convert ${ name }.${ extension }`);
-              return callback(new Error(`Failed to convert ${ name }.${ extension }`));
+          return fs.mkdir(directory, { recursive: true }, (error) => {
+            if (error) {
+              return callback(error);
             }
 
-            this.log(` * converted ${ name }.${ extension }!`);
-            return callback();
-          });
+            const args = this.config.converter.
+              trim().
+              split(/\s+/).
+              map((arg) => {
+                return arg.replace('$input', file).
+                  replace('$output', output).
+                  replace('$format', this.config.format);
+              });
 
-          return convert;
+            const command = args.shift();
+
+            this.log(` * converting ${ name }.${ extension } ...`);
+
+            const convert = spawn(command, args, { stdio: 'ignore' });
+
+            convert.on('exit', (code) => {
+              this.progress.progress(1);
+
+              if (code !== 0) {
+                this.log(` ! failed to convert ${ name }.${ extension }`);
+                return callback(new Error(`Failed to convert ${ name }.${ extension }`));
+              }
+
+              this.log(` * converted ${ name }.${ extension }!`);
+
+              return fs.stat(output, (error, converted) => {
+                if (error) {
+                  return callback(error);
+                }
+
+                const model = this.model({
+                  id,
+                  original,
+                  output,
+                  converted
+                });
+
+                return callback(null, model);
+              });
+            });
+
+            return convert;
+          });
         });
       });
     });
@@ -114,7 +155,7 @@ function Indexer (options = {}) {
     this.log(' - scanning...');
     return glob(this.config.pattern, {
       absolute: true,
-      cwd: this.config.cwd,
+      cwd: this.config.scan,
       nodir: true
     }, (error, files) => {
       if (error) {
@@ -124,7 +165,7 @@ function Indexer (options = {}) {
       this.log(` - scan found ${ files.length } candidates.`);
 
       this.progress = new Progress({
-        format: `  Processing $remaining files [$progress] $percent ($eta remaining) $spinner`,
+        format: '  Processing $remaining files [$progress] $percent ($eta remaining) $spinner',
         total: files.length,
         width: 40,
         complete: '━',
