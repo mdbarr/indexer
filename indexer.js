@@ -8,6 +8,7 @@ const async = require('async');
 const uuid = require('uuid/v4');
 const { join } = require('path');
 const utils = require('barrkeep/utils');
+const Progress = require('barrkeep/progress');
 const MongoClient = require('mongodb').MongoClient;
 const {
   execFile, spawn
@@ -15,12 +16,12 @@ const {
 
 const defaults = {
   cwd: process.cwd(),
-  pattern: '**/*.{asf,avi,flv,mkv,mpg,mp4,m4v,wmv}',
+  pattern: '**/*.{asf,avi,flv,mkv,mpg,mp4,m4v,wmv,3gp}',
   db: 'mongodb://localhost:27017/indexer',
   concurrency: 1,
   hasher: '/usr/bin/sha1sum',
   converter: 'ffmpeg -i $input -f $format -vcodec libx264 -preset fast' +
-    ' -profile:v main -acodec aac $output -hide_banner',
+    ' -profile:v main -acodec aac $output -hide_banner -y',
   format: 'mp4',
   tmpdir: os.tmpdir()
 };
@@ -31,6 +32,10 @@ function Indexer (options = {}) {
 
   this.lookup = (hash, callback) => {
     return this.media.findOne({ hash }, callback);
+  };
+
+  this.log = (...args) => {
+    return args;
   };
 
   this.queue = async.queue((file, callback) => {
@@ -63,7 +68,7 @@ function Indexer (options = {}) {
           }
 
           if (item) { // found
-            console.log(`  - match for ${ hash } found`);
+            this.log(`  - match for ${ hash } found`);
             console.pp(original);
             return callback();
           } // convert
@@ -81,25 +86,21 @@ function Indexer (options = {}) {
 
           const command = args.shift();
 
-          console.log(` * converting ${ name }.${ extension } ...`);
+          this.log(` * converting ${ name }.${ extension } ...`);
 
-          const convert = spawn(command, args);
+          const convert = spawn(command, args, {
+            stdio: 'ignore'
+          });
 
-          // convert.stderr.on('data', (data) => {
-          //   console.log(data.toString());
-          // });
+          convert.on('exit', (code) => {
+            this.progress.progress(1);
 
-          // convert.stdout.on('data', (data) => {
-          //   console.log(data.toString());
-          // });
-
-          convert.on('close', (code) => {
-            if (code === 0) {
-              console.log(` * converted ${ name }.${ extension }!`);
-            } else {
-              console.log(` ! failed to convert ${ name }.${ extension }`);
+            if (code !== 0) {
+              this.log(` ! failed to convert ${ name }.${ extension }`);
+              return callback(new Error(`Failed to convert ${ name }.${ extension }`));
             }
 
+            this.log(` * converted ${ name }.${ extension }!`);
             return callback();
           });
 
@@ -110,7 +111,7 @@ function Indexer (options = {}) {
   }, this.config.concurrency);
 
   this.scan = (callback) => {
-    console.log(' - scanning...');
+    this.log(' - scanning...');
     return glob(this.config.pattern, {
       absolute: true,
       cwd: this.config.cwd,
@@ -120,9 +121,18 @@ function Indexer (options = {}) {
         return callback(error);
       }
 
-      console.log(` - scan found ${ files.length } candidates.`);
+      this.log(` - scan found ${ files.length } candidates.`);
 
-      console.log(' - processing...');
+      this.progress = new Progress({
+        format: `  Processing $remaining files [$progress] $percent ($eta remaining) $spinner`,
+        total: files.length,
+        width: 40,
+        complete: '━',
+        head: '▶',
+        spinner: 'dots'
+      });
+
+      this.log(' - processing...');
       for (const file of files) {
         this.queue.push(file);
       }
@@ -144,7 +154,7 @@ function Indexer (options = {}) {
       useUnifiedTopology: true
     });
 
-    console.log(` - connecting to ${ this.config.db }...`);
+    this.log(` - connecting to ${ this.config.db }...`);
     return this.client.connect((error) => {
       if (error) {
         return callback(error);
