@@ -26,7 +26,8 @@ const defaults = {
   format: 'mp4',
   thumbnailFormat: 'png',
   thumbnail: '-i $output -ss 00:00:03.000 -vframes 1 $thumbnail -y',
-  save: join(os.tmpdir(), 'indexer')
+  save: join(os.tmpdir(), 'indexer'),
+  delete: false
 };
 
 function Indexer (options = {}) {
@@ -159,9 +160,25 @@ function Indexer (options = {}) {
                     thumbnail
                   });
 
-                  this.progress.progress(1);
+                  return this.media.insertOne(model, (error) => {
+                    if (error) {
+                      return callback(error);
+                    }
 
-                  return callback(null, model);
+                    if (this.config.delete) {
+                      return fs.unlink(file, (error) => {
+                        if (error) {
+                          return callback(error);
+                        }
+
+                        this.progress.progress(1);
+                        return callback(null, model);
+                      });
+                    }
+
+                    this.progress.progress(1);
+                    return callback(null, model);
+                  });
                 });
               });
             });
