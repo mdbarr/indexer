@@ -24,7 +24,8 @@ const defaults = {
   convert: '-i $input -f $format -vcodec libx264 -preset fast' +
     ' -profile:v main -acodec aac $output -hide_banner -y',
   format: 'mp4',
-  thumbnail: '-i $output -ss 00:00:01.000 -vframes 1 $thumbnail -y',
+  thumbnailFormat: 'png',
+  thumbnail: '-i $output -ss 00:00:03.000 -vframes 1 $thumbnail -y',
   save: join(os.tmpdir(), 'indexer')
 };
 
@@ -38,8 +39,8 @@ function Indexer (options = {}) {
     const model = {
       id,
       hash: original.hash,
-      relative: output.replace(this.config.save, ''),
-      thumbnail: thumbnail.replace(this.config.save, ''),
+      relative: output.replace(this.config.save, '').replace(/^\//, ''),
+      thumbnail: thumbnail.replace(this.config.save, '').replace(/^\//, ''),
       size: converted.size,
       timestamp: new Date(converted.mtime).getTime(),
       metadata: {
@@ -48,8 +49,6 @@ function Indexer (options = {}) {
       },
       tags: [ ]
     };
-
-    console.pp(model);
 
     return model;
   };
@@ -108,7 +107,7 @@ function Indexer (options = {}) {
               return callback(error);
             }
 
-            const args = this.config.convert.
+            const convertArgs = this.config.convert.
               trim().
               split(/\s+/).
               map((arg) => {
@@ -119,7 +118,7 @@ function Indexer (options = {}) {
 
             this.log(` * converting ${ name }.${ extension } ...`);
 
-            const convert = spawn(this.config.ffmpeg, args, { stdio: 'ignore' });
+            const convert = spawn(this.config.ffmpeg, convertArgs, { stdio: 'ignore' });
 
             convert.on('exit', (code) => {
               if (code !== 0) {
@@ -129,16 +128,18 @@ function Indexer (options = {}) {
 
               this.log(` * converted ${ name }.${ extension }!`);
 
-              const thumbnail = output.replace(this.config.format, 'png');
-              const thumbnailer = this.config.thumbnail.
-                replace('$output', output).
-                replace('$thumbnail', thumbnail).
+              const thumbnail = output.replace(this.config.format, this.config.thumbnailFormat);
+              const thumbnailArgs = this.config.thumbnail.
                 trim().
-                split(/\s/);
+                split(/\s+/).
+                map((arg) => {
+                  return arg.replace('$output', output).
+                    replace('$thumbnail', thumbnail);
+                });
 
               this.log(` * generating thumbnail ${ thumbnail }`);
 
-              return execFile(this.config.ffmpeg, thumbnailer, (error) => {
+              return execFile(this.config.ffmpeg, thumbnailArgs, (error) => {
                 if (error) {
                   return callback(error);
                 }
