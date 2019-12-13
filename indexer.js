@@ -20,9 +20,11 @@ const defaults = {
   db: 'mongodb://localhost:27017/indexer',
   concurrency: 1,
   hasher: '/usr/bin/sha1sum',
-  converter: 'ffmpeg -i $input -f $format -vcodec libx264 -preset fast' +
+  ffmpeg: '/usr/bin/ffmpeg',
+  convert: '-i $input -f $format -vcodec libx264 -preset fast' +
     ' -profile:v main -acodec aac $output -hide_banner -y',
   format: 'mp4',
+  thumbnail: '-i $output -ss 00:00:01.000 -vframes 1 $thumbnail -y',
   save: join(os.tmpdir(), 'indexer')
 };
 
@@ -31,12 +33,13 @@ function Indexer (options = {}) {
   this.config = utils.merge(defaults, options);
 
   this.model = ({
-    id, original, output, converted
+    id, original, output, converted, thumbnail
   }) => {
     const model = {
       id,
       hash: original.hash,
       relative: output.replace(this.config.save, ''),
+      thumbnail: thumbnail.replace(this.config.save, ''),
       size: converted.size,
       timestamp: new Date(converted.mtime).getTime(),
       metadata: {
@@ -45,6 +48,8 @@ function Indexer (options = {}) {
       },
       tags: [ ]
     };
+
+    console.pp(model);
 
     return model;
   };
@@ -103,7 +108,7 @@ function Indexer (options = {}) {
               return callback(error);
             }
 
-            const args = this.config.converter.
+            const args = this.config.convert.
               trim().
               split(/\s+/).
               map((arg) => {
@@ -112,15 +117,11 @@ function Indexer (options = {}) {
                   replace('$format', this.config.format);
               });
 
-            const command = args.shift();
-
             this.log(` * converting ${ name }.${ extension } ...`);
 
-            const convert = spawn(command, args, { stdio: 'ignore' });
+            const convert = spawn(this.config.ffmpeg, args, { stdio: 'ignore' });
 
             convert.on('exit', (code) => {
-              this.progress.progress(1);
-
               if (code !== 0) {
                 this.log(` ! failed to convert ${ name }.${ extension }`);
                 return callback(new Error(`Failed to convert ${ name }.${ extension }`));
@@ -128,19 +129,39 @@ function Indexer (options = {}) {
 
               this.log(` * converted ${ name }.${ extension }!`);
 
-              return fs.stat(output, (error, converted) => {
+              const thumbnail = output.replace(this.config.format, 'png');
+              const thumbnailer = this.config.thumbnail.
+                replace('$output', output).
+                replace('$thumbnail', thumbnail).
+                trim().
+                split(/\s/);
+
+              this.log(` * generating thumbnail ${ thumbnail }`);
+
+              return execFile(this.config.ffmpeg, thumbnailer, (error) => {
                 if (error) {
                   return callback(error);
                 }
 
-                const model = this.model({
-                  id,
-                  original,
-                  output,
-                  converted
-                });
+                this.log(` * generated thumbnail ${ thumbnail }`);
 
-                return callback(null, model);
+                return fs.stat(output, (error, converted) => {
+                  if (error) {
+                    return callback(error);
+                  }
+
+                  const model = this.model({
+                    id,
+                    original,
+                    output,
+                    converted,
+                    thumbnail
+                  });
+
+                  this.progress.progress(1);
+
+                  return callback(null, model);
+                });
               });
             });
 
