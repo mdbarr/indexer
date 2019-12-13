@@ -91,11 +91,28 @@ function Indexer (options = {}) {
             return callback(error);
           }
 
-          if (item) { // found
+          if (item) {
             this.log(`  - match for ${ hash } found`);
-            console.pp(original);
-            return callback();
-          } // convert
+            item.metadata.duplicates.push(original);
+            return this.media.updateOne({ id: item.id }, { $set: item }, (error) => {
+              if (error) {
+                return callback(error);
+              }
+
+              if (this.config.delete) {
+                return fs.unlink(file, (error) => {
+                  if (error) {
+                    return callback(error);
+                  }
+                  this.progress.progress(1);
+                  return callback(null, item);
+                });
+              }
+              this.progress.progress(1);
+              return callback(null, item);
+            });
+          }
+
           const id = uuid();
 
           const directory = join(this.config.save, id.substring(0, 2));
