@@ -7,6 +7,7 @@ const glob = require('glob');
 const async = require('async');
 const uuid = require('uuid/v4');
 const { join } = require('path');
+const { format } = require('util');
 const utils = require('barrkeep/utils');
 const style = require('barrkeep/style');
 const MongoClient = require('mongodb').MongoClient;
@@ -28,12 +29,33 @@ const defaults = {
   thumbnailFormat: 'png',
   thumbnail: '-i $output -ss 00:00:03.000 -vframes 1 $thumbnail -y',
   save: join(os.tmpdir(), 'indexer'),
-  delete: false
+  delete: false,
+  tagger: (model) => {
+    if (model.tags.length === 0) {
+      model.tags.push('untagged');
+    }
+  },
+  log: join(process.cwd(), 'indexer.log')
 };
 
 function Indexer (options = {}) {
   this.version = require('./package.json').version;
   this.config = utils.merge(defaults, options);
+
+  if (typeof this.config.tagger === 'function') {
+    this.tagger = this.config.tagger;
+  }
+
+  if (this.config.log) {
+    this.logStream = fs.createWriteStream(this.config.log, {
+      flags: 'a',
+      autoclsoe: true
+    });
+
+    this.log = (...args) => { this.logStream.write(`${ format(...args) }\n`); };
+  } else {
+    this.log = () => {};
+  }
 
   this.model = ({
     id, original, output, converted, thumbnail
@@ -52,15 +74,15 @@ function Indexer (options = {}) {
       tags: [ ]
     };
 
+    if (this.tagger) {
+      this.tagger(model);
+    }
+
     return model;
   };
 
   this.lookup = (hash, callback) => {
     return this.media.findOne({ hash }, callback);
-  };
-
-  this.log = (...args) => {
-    return args;
   };
 
   this.queue = async.queue((file, callback) => {
