@@ -104,11 +104,11 @@ function Indexer (options = {}) {
                   if (error) {
                     return callback(error);
                   }
-                  this.progress.progress(1);
+                  this.progress.progress(-1);
                   return callback(null, item);
                 });
               }
-              this.progress.progress(1);
+              this.progress.progress(-1);
               return callback(null, item);
             });
           }
@@ -218,26 +218,31 @@ function Indexer (options = {}) {
         return callback(error);
       }
 
-      this.log(` - scan found ${ files.length } candidates.`);
+      if (files.length) {
+        this.log(` - scan found ${ files.length } candidates.`);
 
-      this.progress = new Progress({
-        format: '  Processing $remaining files [$progress] $percent ($eta remaining) $spinner',
-        total: files.length,
-        width: 40,
-        complete: '━',
-        head: '▶',
-        spinner: 'dots'
-      });
+        this.progress = new Progress({
+          format: '  Processing $remaining files [$progress] $percent ($eta remaining) $spinner',
+          total: files.length,
+          width: 40,
+          complete: '━',
+          head: '▶',
+          spinner: 'dots',
+          clear: true
+        });
 
-      this.log(' - processing...');
-      for (const file of files) {
-        this.queue.push(file);
+        this.log(' - processing...');
+        for (const file of files) {
+          this.queue.push(file);
+        }
+
+        return this.queue.drain(() => {
+          console.log('Done.');
+          return callback();
+        });
       }
-
-      return this.queue.drain(() => {
-        console.log('Done.');
-        return callback();
-      });
+      console.log('Done.');
+      return callback();
     });
   };
 
