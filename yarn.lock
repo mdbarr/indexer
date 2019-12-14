@@ -97,10 +97,10 @@ balanced-match@^1.0.0:
   resolved "https://registry.yarnpkg.com/balanced-match/-/balanced-match-1.0.0.tgz#89b4d199ab2bee49de164ea02b89ce462d71b767"
   integrity sha1-ibTRmasr7kneFk6gK4nORi1xt2c=
 
-barrkeep@^2.4.1:
-  version "2.4.1"
-  resolved "https://registry.yarnpkg.com/barrkeep/-/barrkeep-2.4.1.tgz#82fbab43190e795615e65d5877459591b0168b18"
-  integrity sha512-D01f09TMa1D99LB1CpxXaPSlMeaIc6wmxLgLoA9wcw0CKwPqbtFDBjrVwpPQ5YCKHqCk82zp9E5j1w3Or9zgWg==
+barrkeep@^2.4.2:
+  version "2.4.2"
+  resolved "https://registry.yarnpkg.com/barrkeep/-/barrkeep-2.4.2.tgz#a6d1b0f714a00a28811de041e0f9f37acdb27c54"
+  integrity sha512-7JK7X2dXdO2lEY3eu6UD0lriFBR39uL74+OvlaKuyDyI8LLYVyZWEHk/wbJeFCzSa5/LyndFWbzu1+lk+iOcpA==
 
 brace-expansion@^1.1.7:
   version "1.1.11"

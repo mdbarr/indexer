@@ -10,7 +10,7 @@
   "private": false,
   "dependencies": {
     "async": "^3.1.0",
-    "barrkeep": "^2.4.1",
+    "barrkeep": "^2.4.2",
     "glob": "^7.1.6",
     "mongodb": "^3.4.0",
     "uuid": "^3.3.3",

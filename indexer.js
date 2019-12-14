@@ -8,8 +8,9 @@ const async = require('async');
 const uuid = require('uuid/v4');
 const { join } = require('path');
 const utils = require('barrkeep/utils');
-const Progress = require('barrkeep/progress');
+const style = require('barrkeep/style');
 const MongoClient = require('mongodb').MongoClient;
+const { ProgressBar } = require('barrkeep/progress');
 const {
   execFile, spawn
 } = require('child_process');
@@ -221,14 +222,19 @@ function Indexer (options = {}) {
       if (files.length) {
         this.log(` - scan found ${ files.length } candidates.`);
 
-        this.progress = new Progress({
-          format: '  Processing $remaining files [$progress] $percent ($eta remaining) $spinner',
+        this.progress = new ProgressBar({
+          format: '  Processing $remaining files $left$progress$right ' +
+            '$percent ($eta remaining) $spinner',
           total: files.length,
           width: 40,
-          complete: '━',
-          head: '▶',
+          complete: style('━', 'fg: DodgerBlue1'),
+          head: style('▶', 'fg: DodgerBlue1'),
           spinner: 'dots',
-          clear: true
+          clear: true,
+          environment: {
+            left: style('[', 'fg: grey'),
+            right: style(']', 'fg: grey')
+          }
         });
 
         this.log(' - processing...');
@@ -241,7 +247,7 @@ function Indexer (options = {}) {
           return callback();
         });
       }
-      console.log('Done.');
+      console.log('\x1b[?25hDone.');
       return callback();
     });
   };
@@ -274,6 +280,11 @@ function Indexer (options = {}) {
       });
     });
   };
+
+  process.on('SIGINT', () => {
+    console.log('\x1b[?25h\nCanceled.');
+    process.exit(0);
+  });
 }
 
 module.exports = Indexer;
