@@ -16,7 +16,10 @@ const {
   execFile, spawn
 } = require('child_process');
 
+const version = require('./package.json').version;
+
 const defaults = {
+  name: `Indexer v${ version }`,
   scan: process.cwd(),
   pattern: '**/*.{asf,avi,flv,mkv,mpg,mp4,m4v,wmv,3gp}',
   db: 'mongodb://localhost:27017/indexer',
@@ -40,28 +43,45 @@ const defaults = {
   log: join(process.cwd(), 'indexer.log')
 };
 
-function Indexer (options = {}) {
-  this.version = require('./package.json').version;
-  this.config = utils.merge(defaults, options);
+class Indexer {
+  constructor (options = {}) {
+    this.config = utils.merge(defaults, options);
 
-  if (typeof this.config.tagger === 'function') {
-    this.tagger = this.config.tagger;
-  }
+    if (typeof this.config.tagger === 'function') {
+      this.tagger = this.config.tagger;
+    }
 
-  if (this.config.log) {
-    this.logStream = fs.createWriteStream(this.config.log, {
-      flags: 'a',
-      autoclsoe: true
+    if (this.config.log) {
+      this.logStream = fs.createWriteStream(this.config.log, {
+        flags: 'a',
+        autoclsoe: true
+      });
+
+      this.log = (...args) => { this.logStream.write(`${ format(...args) }\n`); };
+    } else {
+      this.log = () => {};
+    }
+
+    this.queue = async.queue(this.converter.bind(this), this.config.concurrency);
+
+    this.queue.error((error, task) => {
+      this.log(` x error in processing ${ task }`);
+      this.log(error);
+
+      if (this.progress) {
+        this.progress.progress(-1);
+      }
     });
 
-    this.log = (...args) => { this.logStream.write(`${ format(...args) }\n`); };
-  } else {
-    this.log = () => {};
+    process.on('SIGINT', () => {
+      console.log('\x1b[?25h\nCanceled.');
+      process.exit(0);
+    });
   }
 
-  this.model = ({
+  model ({
     id, original, output, converted, thumbnail, info
-  }) => {
+  }) {
     let duration;
     let aspect;
     let width;
@@ -106,13 +126,13 @@ function Indexer (options = {}) {
     }
 
     return model;
-  };
+  }
 
-  this.lookup = (hash, callback) => {
+  lookup (hash, callback) {
     return this.media.findOne({ hash }, callback);
-  };
+  }
 
-  this.queue = async.queue((file, callback) => {
+  converter (file, callback) {
     return fs.stat(file, (error, stat) => {
       if (error) {
         return callback(error);
@@ -283,18 +303,9 @@ function Indexer (options = {}) {
         });
       });
     });
-  }, this.config.concurrency);
+  }
 
-  this.queue.error((error, task) => {
-    this.log(` x error in processing ${ task }`);
-    this.log(error);
-
-    if (this.progress) {
-      this.progress.progress(-1);
-    }
-  });
-
-  this.scan = (callback) => {
+  scan (callback) {
     this.log(' - scanning...');
     return glob(this.config.pattern, {
       absolute: true,
@@ -336,12 +347,12 @@ function Indexer (options = {}) {
       console.log('\x1b[?25hDone.');
       return callback();
     });
-  };
+  }
 
-  this.start = (callback) => {
+  start (callback) {
     callback = utils.callback(callback);
 
-    console.log(`Indexer v${ this.version } starting up...`);
+    console.log(`${ this.config.name } starting up...`);
 
     this.client = new MongoClient(this.config.db, {
       useNewUrlParser: true,
@@ -365,12 +376,7 @@ function Indexer (options = {}) {
         return this.client.close(callback);
       });
     });
-  };
-
-  process.on('SIGINT', () => {
-    console.log('\x1b[?25h\nCanceled.');
-    process.exit(0);
-  });
+  }
 }
 
 module.exports = Indexer;
