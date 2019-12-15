@@ -67,10 +67,11 @@ function Indexer (options = {}) {
     let width;
     let height;
 
+    if (info.format && info.format.duration) {
+      duration = info.format.duration;
+    }
+
     for (const stream of info.streams) {
-      if (stream.duration) {
-        duration = stream.duration;
-      }
       if (stream.display_aspect_ratio) {
         aspect = stream.display_aspect_ratio;
       }
@@ -245,16 +246,24 @@ function Indexer (options = {}) {
                       info
                     });
 
+                    this.log(` - inserting ${ name } / ${ id } into db`);
+
                     return this.media.insertOne(model, (error) => {
                       if (error) {
                         return callback(error);
                       }
 
+                      this.log(` - inserted ${ name } / ${ id } into db`);
+
                       if (this.config.delete) {
+                        this.log(` - deleting ${ file }`);
+
                         return fs.unlink(file, (error) => {
                           if (error) {
                             return callback(error);
                           }
+
+                          this.log(` - deleted ${ file }`);
 
                           this.progress.progress(1);
                           return callback(null, model);
