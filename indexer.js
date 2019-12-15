@@ -21,13 +21,15 @@ const defaults = {
   pattern: '**/*.{asf,avi,flv,mkv,mpg,mp4,m4v,wmv,3gp}',
   db: 'mongodb://localhost:27017/indexer',
   concurrency: 1,
-  hasher: '/usr/bin/sha1sum',
+  shasum: '/usr/bin/sha1sum',
   ffmpeg: '/usr/bin/ffmpeg',
   convert: '-i $input -f $format -vcodec libx264 -preset fast' +
     ' -profile:v main -acodec aac $output -hide_banner -y',
   format: 'mp4',
   thumbnailFormat: 'png',
   thumbnail: '-i $output -ss 00:00:03.000 -vframes 1 $thumbnail -y',
+  ffprobe: '/usr/bin/ffprobe',
+  probe: '-v quiet -print_format json -show_format -show_streams -print_format json $file',
   save: join(os.tmpdir(), 'indexer'),
   delete: false,
   tagger: (model) => {
@@ -58,14 +60,38 @@ function Indexer (options = {}) {
   }
 
   this.model = ({
-    id, original, output, converted, thumbnail
+    id, original, output, converted, thumbnail, info
   }) => {
+    let duration;
+    let aspect;
+    let width;
+    let height;
+
+    for (const stream of info.streams) {
+      if (stream.duration) {
+        duration = stream.duration;
+      }
+      if (stream.display_aspect_ratio) {
+        aspect = stream.display_aspect_ratio;
+      }
+      if (stream.width) {
+        width = stream.width;
+      }
+      if (stream.height) {
+        height = stream.height;
+      }
+    }
+
     const model = {
       id,
       hash: original.hash,
       relative: output.replace(this.config.save, '').replace(/^\//, ''),
       thumbnail: thumbnail.replace(this.config.save, '').replace(/^\//, ''),
       size: converted.size,
+      duration,
+      aspect,
+      width,
+      height,
       timestamp: new Date(converted.mtime).getTime(),
       metadata: {
         original,
@@ -91,13 +117,13 @@ function Indexer (options = {}) {
         return callback(error);
       }
 
-      return execFile(this.config.hasher, [ file ], (error, stdout) => {
+      return execFile(this.config.shasum, [ file ], (error, sha) => {
         if (error) {
           return callback(error);
         }
 
         const [ , name, extension ] = file.match(/([^/]+)\.([^.]+)$/);
-        const [ hash ] = stdout.trim().split(/\s+/);
+        const [ hash ] = sha.trim().split(/\s+/);
 
         const original = {
           hash,
@@ -192,32 +218,52 @@ function Indexer (options = {}) {
                     return callback(error);
                   }
 
-                  const model = this.model({
-                    id,
-                    original,
-                    output,
-                    converted,
-                    thumbnail
-                  });
+                  this.log(` * probing converted file information for ${ output }`);
 
-                  return this.media.insertOne(model, (error) => {
+                  const probeArgs = this.config.probe.
+                    trim().
+                    split(/\s+/).
+                    map((arg) => {
+                      return arg.replace('$file', output);
+                    });
+
+                  return execFile(this.config.ffprobe, probeArgs, (error, info) => {
                     if (error) {
                       return callback(error);
                     }
 
-                    if (this.config.delete) {
-                      return fs.unlink(file, (error) => {
-                        if (error) {
-                          return callback(error);
-                        }
+                    info = JSON.parse(info);
 
-                        this.progress.progress(1);
-                        return callback(null, model);
-                      });
-                    }
+                    this.log(` * obtained info for ${ output }`);
 
-                    this.progress.progress(1);
-                    return callback(null, model);
+                    const model = this.model({
+                      id,
+                      original,
+                      output,
+                      converted,
+                      thumbnail,
+                      info
+                    });
+
+                    return this.media.insertOne(model, (error) => {
+                      if (error) {
+                        return callback(error);
+                      }
+
+                      if (this.config.delete) {
+                        return fs.unlink(file, (error) => {
+                          if (error) {
+                            return callback(error);
+                          }
+
+                          this.progress.progress(1);
+                          return callback(null, model);
+                        });
+                      }
+
+                      this.progress.progress(1);
+                      return callback(null, model);
+                    });
                   });
                 });
               });
@@ -229,6 +275,15 @@ function Indexer (options = {}) {
       });
     });
   }, this.config.concurrency);
+
+  this.queue.error((error, task) => {
+    this.log(` x error in processing ${ task }`);
+    this.log(error);
+
+    if (this.progress) {
+      this.progress.progress(-1);
+    }
+  });
 
   this.scan = (callback) => {
     this.log(' - scanning...');
