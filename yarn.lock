@@ -18,6 +18,14 @@
     esutils "^2.0.2"
     js-tokens "^4.0.0"
 
+"@mdbarr/events@^0.1.6":
+  version "0.1.6"
+  resolved "https://registry.yarnpkg.com/@mdbarr/events/-/events-0.1.6.tgz#cc289064d58b3e0764ca0bfb980eabef9894a94a"
+  integrity sha512-Tjl/g1VJiuYzzGM3KxzR1i/5gpHCnLjlXzUGiMZea5Du2YWoJEksiT1c8qxiocGQ0DTQeN92xdPrFReG1KFNUw==
+  dependencies:
+    barrkeep "^2.3.0"
+    uuid "^3.3.3"
+
 "@types/color-name@^1.1.1":
   version "1.1.1"
   resolved "https://registry.yarnpkg.com/@types/color-name/-/color-name-1.1.1.tgz#1c1261bbeaa10a8055bbc5d8ab84b7b2afc846a0"
@@ -97,7 +105,7 @@ balanced-match@^1.0.0:
   resolved "https://registry.yarnpkg.com/balanced-match/-/balanced-match-1.0.0.tgz#89b4d199ab2bee49de164ea02b89ce462d71b767"
   integrity sha1-ibTRmasr7kneFk6gK4nORi1xt2c=
 
-barrkeep@^2.4.2:
+barrkeep@^2.3.0, barrkeep@^2.4.2:
   version "2.4.2"
   resolved "https://registry.yarnpkg.com/barrkeep/-/barrkeep-2.4.2.tgz#a6d1b0f714a00a28811de041e0f9f37acdb27c54"
   integrity sha512-7JK7X2dXdO2lEY3eu6UD0lriFBR39uL74+OvlaKuyDyI8LLYVyZWEHk/wbJeFCzSa5/LyndFWbzu1+lk+iOcpA==

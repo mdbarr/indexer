@@ -9,6 +9,7 @@
   "license": "MIT",
   "private": false,
   "dependencies": {
+    "@mdbarr/events": "^0.1.6",
     "async": "^3.1.0",
     "barrkeep": "^2.4.2",
     "glob": "^7.1.6",
@@ -20,6 +21,6 @@
     "eslint": "^6.7.2"
   },
   "scripts": {
-    "lint": "eslint cli.js indexer.js"
+    "lint": "eslint cli.js indexer.js scanner.js"
   }
 }
