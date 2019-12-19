@@ -11,7 +11,9 @@ const Scanner = require('./scanner');
 const utils = require('barrkeep/utils');
 const style = require('barrkeep/style');
 const MongoClient = require('mongodb').MongoClient;
-const { ProgressBar } = require('barrkeep/progress');
+const {
+  ProgressBar, Spinner
+} = require('barrkeep/progress');
 const {
   execFile, spawn
 } = require('child_process');
@@ -160,18 +162,47 @@ class Indexer {
   }
 
   converter (file, callback) {
+    let index;
+    for (index = 0; index < this.slots.length; index++) {
+      if (!this.slots[index]) {
+        this.slots[index] = true;
+        break;
+      }
+    }
+    const y = 5 + index * 2;
+
+    this.log(` * examining ${ file }`);
     return fs.stat(file, (error, stat) => {
       if (error) {
         return callback(error);
       }
 
+      const [ , name, extension ] = file.match(/([^/]+)\.([^.]+)$/);
+      const shortName = name.length > 25 ? `${ name.substring(0, 22) }…` : name;
+
+      const prettyName = style(`${ name }.${ extension }`, 'style: bold');
+      const prettyShortName = style(`${ shortName }.${ extension }`, 'style: bold');
+
+      const spinner = new Spinner({
+        prepend: `  Fingerprinting ${ prettyName } `,
+        spinner: 'dots4',
+        style: 'fg: DodgerBlue1',
+        x: 0,
+        y
+      });
+      spinner.start();
+
+      this.log(` * hashing ${ file }`);
       return execFile(this.config.shasum, [ file ], (error, sha) => {
+        spinner.stop();
+
         if (error) {
           return callback(error);
         }
 
-        const [ , name, extension ] = file.match(/([^/]+)\.([^.]+)$/);
         const [ hash ] = sha.trim().split(/\s+/);
+
+        this.log(` * hashed ${ file }: ${ hash }`);
 
         const original = {
           hash,
@@ -233,24 +264,14 @@ class Indexer {
                   replace('$format', this.config.format);
               });
 
-            const prettyName = style(`${ name }.${ extension }`, 'style: bold');
-
-            let index;
-            for (index = 0; index < this.slots.length; index++) {
-              if (!this.slots[index]) {
-                this.slots[index] = true;
-                break;
-              }
-            }
-
             this.log(` * converting ${ name }.${ extension } in slot ${ index }`);
 
             const progress = new ProgressBar({
-              format: `  Converting ${ prettyName } $left$progress$right ` +
+              format: `  Converting ${ prettyShortName } $left$progress$right ` +
                 '$percent ($eta remaining)',
               total: Infinity,
               width: 40,
-              y: 5 + index * 2,
+              y,
               complete: style('━', 'fg: Green4'),
               head: style('▶', 'fg: Green4'),
               clear: true,
@@ -388,6 +409,7 @@ class Indexer {
       complete: style('◼', 'fg: Green4'),
       head: false,
       spinner: 'dots',
+      spinnerStyle: 'fg: DodgerBlue1',
       clear: true,
       tokens: this.tokens,
       formatOptions: { numeral: true }

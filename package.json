@@ -11,8 +11,8 @@
   "dependencies": {
     "@mdbarr/events": "^0.1.6",
     "async": "^3.1.0",
-    "barrkeep": "^2.4.4",
-    "mongodb": "^3.4.0",
+    "barrkeep": "^2.4.5",
+    "mongodb": "^3.4.1",
     "uuid": "^3.3.3",
     "yargs": "^15.0.2"
   },
