@@ -40,7 +40,7 @@ const defaults = {
   scan: process.cwd(),
   pattern: /\.(asf|avi|flv|mkv|mpg|mp4|m4v|wmv|3gp)$/,
   db: 'mongodb://localhost:27017/indexer',
-  concurrency: 1,
+  concurrency: 2,
   shasum: '/usr/bin/sha1sum',
   ffmpeg: '/usr/bin/ffmpeg',
   convert: '-i $input -f $format -vcodec libx264 -preset fast' +
@@ -78,6 +78,8 @@ class Indexer {
     } else {
       this.log = () => {};
     }
+
+    this.slots = new Array(this.config.concurrency);
 
     this.queue = async.queue(this.converter.bind(this), this.config.concurrency);
 
@@ -231,30 +233,40 @@ class Indexer {
                   replace('$format', this.config.format);
               });
 
-            this.log(` * converting ${ name }.${ extension } ...`);
-
             const prettyName = style(`${ name }.${ extension }`, 'style: bold');
+
+            let index;
+            for (index = 0; index < this.slots.length; index++) {
+              if (!this.slots[index]) {
+                this.slots[index] = true;
+                break;
+              }
+            }
+
+            this.log(` * converting ${ name }.${ extension } in slot ${ index }`);
 
             const progress = new ProgressBar({
               format: `  Converting ${ prettyName } $left$progress$right ` +
                 '$percent ($eta remaining)',
-              total: 1,
+              total: Infinity,
               width: 40,
-              y: 5,
+              y: 5 + index * 2,
               complete: style('━', 'fg: Green4'),
               head: style('▶', 'fg: Green4'),
               clear: true,
-              tokens: this.tokens,
-              durationOptions: { empty: '> a minute' }
+              tokens: this.tokens
             });
 
             const convert = spawn(this.config.ffmpeg, convertArgs,
               { stdio: [ 'ignore', 'ignore', 'pipe' ] });
 
+            let log = '';
             convert.stderr.on('data', (data) => {
               data = data.toString();
-              if (durationRegExp.test(data)) {
-                const [ , duration ] = data.match(durationRegExp);
+              log += data;
+
+              if (progress.total === Infinity && durationRegExp.test(log)) {
+                const [ , duration ] = log.match(durationRegExp);
                 progress.total = timeToValue(duration);
               } else if (timeRegExp.test(data)) {
                 const [ , time ] = data.match(timeRegExp);
@@ -264,6 +276,7 @@ class Indexer {
 
             convert.on('exit', (code) => {
               progress.done();
+              this.slots[index] = false;
 
               if (code !== 0) {
                 this.log(` ! failed to convert ${ name }.${ extension }`);
@@ -342,11 +355,13 @@ class Indexer {
                           this.log(` - deleted ${ file }`);
 
                           this.progress.value++;
+                          this.tokens.processed++;
                           return callback(null, model);
                         });
                       }
 
                       this.progress.value++;
+                      this.tokens.processed++;
                       return callback(null, model);
                     });
                   });
@@ -391,7 +406,7 @@ class Indexer {
     this.scanner.add(this.config.scan);
 
     return this.queue.drain(() => {
-      console.log('\x1b[?25hDone.');
+      console.log('\x1b[H\x1b[2J\x1b[?25hDone.');
       return callback();
     });
   }
