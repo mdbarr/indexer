@@ -43,7 +43,10 @@ class Scanner extends EventBus {
 
             this.emit({
               type: 'file',
-              data: path
+              data: {
+                index: stats.files,
+                path
+              }
             });
           }
         }

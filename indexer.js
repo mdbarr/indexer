@@ -3,11 +3,11 @@
 require('barrkeep/pp');
 const fs = require('fs');
 const os = require('os');
-const glob = require('glob');
 const async = require('async');
 const uuid = require('uuid/v4');
 const { join } = require('path');
 const { format } = require('util');
+const Scanner = require('./scanner');
 const utils = require('barrkeep/utils');
 const style = require('barrkeep/style');
 const MongoClient = require('mongodb').MongoClient;
@@ -21,7 +21,7 @@ const version = require('./package.json').version;
 const defaults = {
   name: `Indexer v${ version }`,
   scan: process.cwd(),
-  pattern: '**/*.{asf,avi,flv,mkv,mpg,mp4,m4v,wmv,3gp}',
+  pattern: /\.(asf|avi|flv|mkv|mpg|mp4|m4v|wmv|3gp)$/,
   db: 'mongodb://localhost:27017/indexer',
   concurrency: 1,
   shasum: '/usr/bin/sha1sum',
@@ -307,43 +307,34 @@ class Indexer {
 
   scan (callback) {
     this.log(' - scanning...');
-    return glob(this.config.pattern, {
-      absolute: true,
-      cwd: this.config.scan,
-      nodir: true
-    }, (error, files) => {
-      if (error) {
-        return callback(error);
+
+    this.progress = new ProgressBar({
+      format: '  Processing $remaining files $left$progress$right ' +
+        '$percent ($eta remaining) $spinner',
+      total: 1,
+      width: 40,
+      complete: style('━', 'fg: SteelBlue'),
+      head: style('▶', 'fg: SteelBlue'),
+      spinner: 'dots',
+      clear: true,
+      environment: {
+        left: style('[', 'fg: grey'),
+        right: style(']', 'fg: grey')
       }
+    });
 
-      if (files.length) {
-        this.log(` - scan found ${ files.length } candidates.`);
+    this.scanner = new Scanner(this.config);
 
-        this.progress = new ProgressBar({
-          format: '  Processing $remaining files $left$progress$right ' +
-            '$percent ($eta remaining) $spinner',
-          total: files.length,
-          width: 40,
-          complete: style('━', 'fg: SteelBlue'),
-          head: style('▶', 'fg: SteelBlue'),
-          spinner: 'dots',
-          clear: true,
-          environment: {
-            left: style('[', 'fg: grey'),
-            right: style(']', 'fg: grey')
-          }
-        });
-
-        this.log(' - processing...');
-        for (const file of files) {
-          this.queue.push(file);
-        }
-
-        return this.queue.drain(() => {
-          console.log('Done.');
-          return callback();
-        });
+    this.scanner.on('file', (event) => {
+      if (event.data.index !== 1) {
+        this.progress.total++;
       }
+      this.queue.push(event.data.path);
+    });
+
+    this.scanner.add(this.config.scan);
+
+    return this.queue.drain(() => {
       console.log('\x1b[?25hDone.');
       return callback();
     });

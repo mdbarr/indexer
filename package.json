@@ -12,7 +12,6 @@
     "@mdbarr/events": "^0.1.6",
     "async": "^3.1.0",
     "barrkeep": "^2.4.3",
-    "glob": "^7.1.6",
     "mongodb": "^3.4.0",
     "uuid": "^3.3.3",
     "yargs": "^15.0.2"
