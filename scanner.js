@@ -63,8 +63,12 @@ class Scanner extends EventBus {
     });
   }
 
-  add (directory) {
-    this.queue.push(directory);
+  add (directories) {
+    if (Array.isArray(directories)) {
+      directories.forEach((directory) => { return this.queue.push(directory); });
+    } else {
+      this.queue.push(directories);
+    }
   }
 }
 
