@@ -234,11 +234,13 @@ class Indexer {
                   }
                   this.progress.total--;
                   this.tokens.processed++;
+                  this.slots[index] = false;
                   return callback(null, item);
                 });
               }
               this.progress.total--;
               this.tokens.processed++;
+              this.slots[index] = false;
               return callback(null, item);
             });
           }
