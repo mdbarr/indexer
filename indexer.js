@@ -18,6 +18,23 @@ const {
 
 const version = require('./package.json').version;
 
+//////////
+
+const durationRegExp = /Duration:\s(\d+:\d+:\d+\.\d+)/;
+const timeRegExp = /time=(\d+:\d+:\d+\.\d+)/;
+
+function timeToValue (string) {
+  const parts = string.split(/:/);
+
+  let value = Number.parseInt(parts[0], 10) * 3600000;
+  value += Number.parseInt(parts[1], 10) * 60000;
+  value += Math.ceil(Number.parseFloat(parts[2]) * 1000);
+
+  return value;
+}
+
+//////////
+
 const defaults = {
   name: `Indexer v${ version }`,
   scan: process.cwd(),
@@ -70,13 +87,21 @@ class Indexer {
 
       if (this.progress) {
         this.progress.total--;
+        this.tokens.processed++;
       }
     });
 
     process.on('SIGINT', () => {
-      console.log('\x1b[?25h\nCanceled.');
+      console.log('\x1b[H\x1b[2J\x1b[?25hCanceled.');
       process.exit(0);
     });
+
+    this.tokens = {
+      left: style('[', 'fg: grey; style: bold'),
+      right: style(']', 'fg: grey; style: bold'),
+      files: 0,
+      processed: 0
+    };
   }
 
   model ({
@@ -175,10 +200,12 @@ class Indexer {
                     return callback(error);
                   }
                   this.progress.total--;
+                  this.tokens.processed++;
                   return callback(null, item);
                 });
               }
               this.progress.total--;
+              this.tokens.processed++;
               return callback(null, item);
             });
           }
@@ -206,9 +233,38 @@ class Indexer {
 
             this.log(` * converting ${ name }.${ extension } ...`);
 
-            const convert = spawn(this.config.ffmpeg, convertArgs, { stdio: 'ignore' });
+            const prettyName = style(`${ name }.${ extension }`, 'style: bold');
+
+            const progress = new ProgressBar({
+              format: `  Converting ${ prettyName } $left$progress$right ` +
+                '$percent ($eta remaining)',
+              total: 1,
+              width: 40,
+              y: 5,
+              complete: style('━', 'fg: Green4'),
+              head: style('▶', 'fg: Green4'),
+              clear: true,
+              tokens: this.tokens,
+              durationOptions: { empty: '> a minute' }
+            });
+
+            const convert = spawn(this.config.ffmpeg, convertArgs,
+              { stdio: [ 'ignore', 'ignore', 'pipe' ] });
+
+            convert.stderr.on('data', (data) => {
+              data = data.toString();
+              if (durationRegExp.test(data)) {
+                const [ , duration ] = data.match(durationRegExp);
+                progress.total = timeToValue(duration);
+              } else if (timeRegExp.test(data)) {
+                const [ , time ] = data.match(timeRegExp);
+                progress.value = timeToValue(time);
+              }
+            });
 
             convert.on('exit', (code) => {
+              progress.done();
+
               if (code !== 0) {
                 this.log(` ! failed to convert ${ name }.${ extension }`);
                 return callback(new Error(`Failed to convert ${ name }.${ extension }`));
@@ -309,18 +365,17 @@ class Indexer {
     this.log(' - scanning...');
 
     this.progress = new ProgressBar({
-      format: '  Processing $remaining files $left$progress$right ' +
+      format: ' Processed $processed/$files files $left$progress$right ' +
         '$percent ($eta remaining) $spinner',
       total: 1,
       width: 40,
-      complete: style('━', 'fg: SteelBlue'),
-      head: style('▶', 'fg: SteelBlue'),
+      y: 3,
+      complete: style('◼', 'fg: Green4'),
+      head: false,
       spinner: 'dots',
       clear: true,
-      environment: {
-        left: style('[', 'fg: grey'),
-        right: style(']', 'fg: grey')
-      }
+      tokens: this.tokens,
+      formatOptions: { numeral: true }
     });
 
     this.scanner = new Scanner(this.config);
@@ -329,6 +384,7 @@ class Indexer {
       if (event.data.index !== 1) {
         this.progress.total++;
       }
+      this.tokens.files++;
       this.queue.push(event.data.path);
     });
 
@@ -343,7 +399,7 @@ class Indexer {
   start (callback) {
     callback = utils.callback(callback);
 
-    console.log(`${ this.config.name } starting up...`);
+    console.log(`\x1b[H\x1b[2J\n${ this.config.name } starting up...`);
 
     this.client = new MongoClient(this.config.db, {
       useNewUrlParser: true,
