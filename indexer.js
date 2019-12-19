@@ -69,7 +69,7 @@ class Indexer {
       this.log(error);
 
       if (this.progress) {
-        this.progress.progress(-1);
+        this.progress.total--;
       }
     });
 
@@ -174,11 +174,11 @@ class Indexer {
                   if (error) {
                     return callback(error);
                   }
-                  this.progress.progress(-1);
+                  this.progress.total--;
                   return callback(null, item);
                 });
               }
-              this.progress.progress(-1);
+              this.progress.total--;
               return callback(null, item);
             });
           }
@@ -285,12 +285,12 @@ class Indexer {
 
                           this.log(` - deleted ${ file }`);
 
-                          this.progress.progress(1);
+                          this.progress.value++;
                           return callback(null, model);
                         });
                       }
 
-                      this.progress.progress(1);
+                      this.progress.value++;
                       return callback(null, model);
                     });
                   });
@@ -324,8 +324,8 @@ class Indexer {
             '$percent ($eta remaining) $spinner',
           total: files.length,
           width: 40,
-          complete: style('━', 'fg: DodgerBlue1'),
-          head: style('▶', 'fg: DodgerBlue1'),
+          complete: style('━', 'fg: SteelBlue'),
+          head: style('▶', 'fg: SteelBlue'),
           spinner: 'dots',
           clear: true,
           environment: {
