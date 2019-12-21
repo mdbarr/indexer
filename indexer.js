@@ -40,7 +40,7 @@ function timeToValue (string) {
 const defaults = {
   name: `Indexer v${ version }`,
   scan: process.cwd(),
-  pattern: /\.(asf|avi|flv|mkv|mpg|mp4|m4v|wmv|3gp)$/,
+  pattern: /\.(asf|avi|flv|mkv|mpg|mp4|m4v|webm|wmv|3gp)$/i,
   db: 'mongodb://localhost:27017/indexer',
   concurrency: 2,
   shasum: '/usr/bin/sha1sum',
@@ -50,6 +50,7 @@ const defaults = {
   format: 'mp4',
   thumbnailFormat: 'png',
   thumbnail: '-i $output -ss 00:00:03.000 -vframes 1 $thumbnail -y',
+  sound: '-t 10 -i $file -af volumedetect -f null /dev/null',
   ffprobe: '/usr/bin/ffprobe',
   probe: '-v quiet -print_format json -show_format -show_streams -print_format json $file',
   save: join(os.tmpdir(), 'indexer'),
@@ -109,7 +110,7 @@ class Indexer {
   }
 
   model ({
-    id, original, output, converted, thumbnail, info
+    id, original, output, converted, thumbnail, info, sound
   }) {
     let duration;
     let aspect;
@@ -142,6 +143,7 @@ class Indexer {
       aspect,
       width,
       height,
+      sound,
       timestamp: new Date(converted.mtime).getTime(),
       metadata: {
         original,
@@ -183,7 +185,7 @@ class Indexer {
       const prettyName = style(`${ name }.${ extension }`, 'style: bold');
       const prettyShortName = style(`${ shortName }.${ extension }`, 'style: bold');
 
-      const spinner = new Spinner({
+      let spinner = new Spinner({
         prepend: `  Fingerprinting ${ prettyName } `,
         spinner: 'dots4',
         style: 'fg: DodgerBlue1',
@@ -299,7 +301,6 @@ class Indexer {
 
             convert.on('exit', (code) => {
               progress.done();
-              this.slots[index] = false;
 
               if (code !== 0) {
                 this.log(` ! failed to convert ${ name }.${ extension }`);
@@ -307,6 +308,15 @@ class Indexer {
               }
 
               this.log(` * converted ${ name }.${ extension }!`);
+
+              spinner = new Spinner({
+                prepend: `  Generating metadata for ${ prettyName } `,
+                spinner: 'dots4',
+                style: 'fg: DodgerBlue1',
+                x: 0,
+                y
+              });
+              spinner.start();
 
               const thumbnail = output.replace(this.config.format, this.config.thumbnailFormat);
               const thumbnailArgs = this.config.thumbnail.
@@ -349,43 +359,67 @@ class Indexer {
 
                     this.log(` * obtained info for ${ output }`);
 
-                    const model = this.model({
-                      id,
-                      original,
-                      output,
-                      converted,
-                      thumbnail,
-                      info
-                    });
+                    this.log(` * checking for sound in ${ output }`);
 
-                    this.log(` - inserting ${ name } / ${ id } into db`);
+                    const soundArgs = this.config.sound.
+                      trim().
+                      split(/\s+/).
+                      map((arg) => {
+                        return arg.replace('$file', output);
+                      });
 
-                    return this.media.insertOne(model, (error) => {
+                    return execFile(this.config.ffmpeg, soundArgs, (error, stdout, soundInfo) => {
                       if (error) {
                         return callback(error);
                       }
 
-                      this.log(` - inserted ${ name } / ${ id } into db`);
+                      const sound = !soundInfo.includes('mean_volume: -91');
 
-                      if (this.config.delete) {
-                        this.log(` - deleting ${ file }`);
+                      this.log(` * sound in ${ output }: ${ sound }`);
 
-                        return fs.unlink(file, (error) => {
-                          if (error) {
-                            return callback(error);
-                          }
+                      const model = this.model({
+                        id,
+                        original,
+                        output,
+                        converted,
+                        thumbnail,
+                        info,
+                        sound
+                      });
 
-                          this.log(` - deleted ${ file }`);
+                      this.log(` - inserting ${ name } / ${ id } into db`);
 
-                          this.progress.value++;
-                          this.tokens.processed++;
-                          return callback(null, model);
-                        });
-                      }
+                      return this.media.insertOne(model, (error) => {
+                        if (error) {
+                          return callback(error);
+                        }
 
-                      this.progress.value++;
-                      this.tokens.processed++;
-                      return callback(null, model);
+                        this.log(` - inserted ${ name } / ${ id } into db`);
+
+                        if (this.config.delete) {
+                          this.log(` - deleting ${ file }`);
+
+                          return fs.unlink(file, (error) => {
+                            if (error) {
+                              return callback(error);
+                            }
+
+                            this.log(` - deleted ${ file }`);
+
+                            spinner.stop();
+                            this.progress.value++;
+                            this.tokens.processed++;
+                            this.slots[index] = false;
+                            return callback(null, model);
+                          });
+                        }
+
+                        spinner.stop();
+                        this.progress.value++;
+                        this.tokens.processed++;
+                        this.slots[index] = false;
+                        return callback(null, model);
+                      });
                     });
                   });
                 });
