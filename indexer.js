@@ -110,7 +110,7 @@ class Indexer {
   }
 
   model ({
-    id, original, output, converted, thumbnail, info, sound
+    id, occurrence, output, converted, thumbnail, info, sound
   }) {
     let duration;
     let aspect;
@@ -135,7 +135,7 @@ class Indexer {
 
     const model = {
       id,
-      hash: original.hash,
+      hash: occurrence.hash,
       relative: output.replace(this.config.save, '').replace(/^\//, ''),
       thumbnail: thumbnail.replace(this.config.save, '').replace(/^\//, ''),
       size: converted.size,
@@ -145,10 +145,7 @@ class Indexer {
       height,
       sound,
       timestamp: new Date(converted.mtime).getTime(),
-      metadata: {
-        original,
-        duplicates: []
-      },
+      metadata: { occurrences: [ occurrence ] },
       tags: [ ]
     };
 
@@ -206,7 +203,7 @@ class Indexer {
 
         this.log(` * hashed ${ file }: ${ hash }`);
 
-        const original = {
+        const occurrence = {
           hash,
           file,
           path: file.replace(/\/([^/]+)$/, '/'),
@@ -222,12 +219,19 @@ class Indexer {
           }
 
           if (item) {
-            this.log(`  - match for ${ hash } found`);
-            item.metadata.duplicates.push(original);
+            this.log(` - match for ${ hash } found`);
+
+            this.log(` * updating metadata for ${ name }/${ hash }`);
+
+            item.metadata.occurrences.push(occurrence);
+            this.tagger(item);
+
             return this.media.updateOne({ id: item.id }, { $set: item }, (error) => {
               if (error) {
                 return callback(error);
               }
+
+              this.log(` * metadata updated for ${ name }`);
 
               if (this.config.delete) {
                 return fs.unlink(file, (error) => {
@@ -379,7 +383,7 @@ class Indexer {
 
                       const model = this.model({
                         id,
-                        original,
+                        occurrence,
                         output,
                         converted,
                         thumbnail,
