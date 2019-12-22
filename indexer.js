@@ -43,7 +43,7 @@ const defaults = {
   pattern: /\.(asf|avi|flv|mkv|mpg|mp4|m4v|webm|wmv|3gp)$/i,
   db: 'mongodb://localhost:27017/indexer',
   concurrency: 2,
-  shasum: '/usr/bin/sha1sum',
+  shasum: '/usr/bin/md5sum',
   ffmpeg: '/usr/bin/ffmpeg',
   convert: '-i $input -f $format -vcodec libx264 -preset fast' +
     ' -profile:v main -acodec aac $output -hide_banner -y',
