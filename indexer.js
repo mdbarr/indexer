@@ -56,8 +56,11 @@ const defaults = {
   save: join(os.tmpdir(), 'indexer'),
   delete: false,
   tagger: (model) => {
-    if (model.tags.length === 0) {
-      model.tags.push('untagged');
+    if (model.metadata.tags.length === 0) {
+      model.metadata.tags.push('untagged');
+    }
+    if (model.metadata.categories.length === 0) {
+      model.metadata.categories.push('uncategorized');
     }
   },
   log: join(process.cwd(), 'indexer.log')
@@ -145,8 +148,16 @@ class Indexer {
       height,
       sound,
       timestamp: new Date(converted.mtime).getTime(),
-      metadata: { occurrences: [ occurrence ] },
-      tags: [ ]
+      metadata: {
+        occurrences: [ occurrence ],
+        views: 0,
+        stars: 0,
+        favorited: false,
+        reviewed: false,
+        description: '',
+        categories: [ ],
+        tags: [ ]
+      }
     };
 
     if (this.tagger) {
