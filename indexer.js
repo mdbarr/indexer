@@ -40,7 +40,7 @@ function timeToValue (string) {
 const defaults = {
   name: `Indexer v${ version }`,
   scan: process.cwd(),
-  pattern: /\.(asf|avi|flv|mkv|mpg|mp4|m4v|webm|wmv|3gp)$/i,
+  pattern: /\.(asf|avi|flv|mkv|mov|mpg|mp4|mts|m4v|ts|vob|webm|wmv|3gp)$/i,
   db: 'mongodb://localhost:27017/indexer',
   concurrency: 2,
   shasum: '/usr/bin/md5sum',
@@ -138,6 +138,7 @@ class Indexer {
 
     const model = {
       id,
+      object: 'video',
       hash: occurrence.hash,
       relative: output.replace(this.config.save, '').replace(/^\//, ''),
       thumbnail: thumbnail.replace(this.config.save, '').replace(/^\//, ''),
