@@ -8,7 +8,7 @@ const { EventBus } = require('@mdbarr/events');
 class Scanner extends EventBus {
   constructor ({
     pattern = /\.(asf|avi|flv|mkv|mpg|mp4|m4v|wmv|3gp)$/,
-    concurrency = 1, recursive = true
+    concurrency = 1, recursive = true, dotfiles = false
   } = {}) {
     super();
 
@@ -38,6 +38,10 @@ class Scanner extends EventBus {
             this.queue.push(path);
           } else if (entry.isFile() && !this.seen.has(path) &&
                      pattern.test(entry.name)) {
+            if (dotfiles === false && entry.name.startsWith('.')) {
+              return next();
+            }
+
             this.seen.has(path);
             stats.files++;
 
