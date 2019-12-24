@@ -1,6 +1,6 @@
 {
   "name": "@mdbarr/indexer",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Media indexer, converter and tagger",
   "main": "indexer.js",
   "bin": "cli.js",
