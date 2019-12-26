@@ -77,7 +77,7 @@ class Indexer {
     if (this.config.log) {
       this.logStream = fs.createWriteStream(this.config.log, {
         flags: 'a',
-        autoclsoe: true
+        autoclose: true
       });
 
       this.log = (...args) => { this.logStream.write(`${ format(...args) }\n`); };
