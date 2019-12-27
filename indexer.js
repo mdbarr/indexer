@@ -139,6 +139,7 @@ class Indexer {
     const model = {
       id,
       object: 'video',
+      version,
       hash: occurrence.hash,
       relative: output.replace(this.config.save, '').replace(/^\//, ''),
       thumbnail: thumbnail.replace(this.config.save, '').replace(/^\//, ''),
