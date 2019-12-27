@@ -235,7 +235,19 @@ class Indexer {
 
             this.log(` * updating metadata for ${ name }/${ hash }`);
 
-            item.metadata.occurrences.push(occurrence);
+            let found = false;
+            for (const one of item.metadata.occurrences) {
+              if (one.file === occurrence.file) {
+                found = true;
+                break;
+              }
+            }
+            if (found) {
+              this.log(` - existing occurrence found for ${ occurrence.file }`);
+            } else {
+              item.metadata.occurrences.push(occurrence);
+            }
+
             this.tagger(item);
 
             return this.media.updateOne({ id: item.id }, { $set: item }, (error) => {
