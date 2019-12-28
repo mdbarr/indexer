@@ -105,10 +105,10 @@ balanced-match@^1.0.0:
   resolved "https://registry.yarnpkg.com/balanced-match/-/balanced-match-1.0.0.tgz#89b4d199ab2bee49de164ea02b89ce462d71b767"
   integrity sha1-ibTRmasr7kneFk6gK4nORi1xt2c=
 
-barrkeep@^2.3.0, barrkeep@^2.4.6:
-  version "2.4.6"
-  resolved "https://registry.yarnpkg.com/barrkeep/-/barrkeep-2.4.6.tgz#16926eba89c64323bd6c37dbf42a91c6b36c2bba"
-  integrity sha512-R5dc5Gi0ab8Rr9zhy0pRxNXMEoDj7EYehEbDDHOayuki9aJ9jCTiDaVTdKO1+57wHP7EQADfjlZG17FgS5Tkkg==
+barrkeep@^2.3.0, barrkeep@^2.5.0:
+  version "2.5.0"
+  resolved "https://registry.yarnpkg.com/barrkeep/-/barrkeep-2.5.0.tgz#ca0af2e2b2d603228c9b8cd9438b23f9eab71ea9"
+  integrity sha512-C61ZPovPKncxWaqgd6Cn3uy+JGKIErW7mtBgZiACH+jHAIusI45l8jmPR6u7Tb7cz4wLzS9gUFeMohIMmHUFJg==
 
 brace-expansion@^1.1.7:
   version "1.1.11"
@@ -789,9 +789,9 @@ run-async@^2.2.0:
     is-promise "^2.1.0"
 
 rxjs@^6.5.3:
-  version "6.5.3"
-  resolved "https://registry.yarnpkg.com/rxjs/-/rxjs-6.5.3.tgz#510e26317f4db91a7eb1de77d9dd9ba0a4899a3a"
-  integrity sha512-wuYsAYYFdWTAnAaPoKGNhfpWwKZbJW+HgAJ+mImp+Epl7BG8oNWBCTyRM8gba9k4lk8BgWdoYm21Mo/RYhhbgA==
+  version "6.5.4"
+  resolved "https://registry.yarnpkg.com/rxjs/-/rxjs-6.5.4.tgz#e0777fe0d184cec7872df147f303572d414e211c"
+  integrity sha512-naMQXcgEo3csAEGvw/NydRA0fuS2nDZJiw1YUWFKU7aPPAPGZEsD4Iimit96qwCieH6y614MCLYwdkrWx7z/7Q==
   dependencies:
     tslib "^1.9.0"
 
