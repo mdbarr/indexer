@@ -49,7 +49,7 @@ const defaults = {
     ' -profile:v main -acodec aac $output -hide_banner -y',
   format: 'mp4',
   thumbnailFormat: 'png',
-  thumbnail: '-i $output -ss 00:00:03.000 -vframes 1 $thumbnail -y',
+  thumbnail: '-i $output -ss 00:00:05.000 -vframes 1 $thumbnail -y',
   sound: '-t 10 -i $file -af volumedetect -f null /dev/null',
   ffprobe: '/usr/bin/ffprobe',
   probe: '-v quiet -print_format json -show_format -show_streams -print_format json $file',
@@ -87,7 +87,25 @@ class Indexer {
 
     this.slots = new Array(this.config.concurrency);
 
-    this.queue = async.queue(this.converter.bind(this), this.config.concurrency);
+    this.queue = async.queue((file, callback) => {
+      let index;
+      for (index = 0; index < this.slots.length; index++) {
+        if (!this.slots[index]) {
+          this.slots[index] = true;
+          break;
+        }
+      }
+      const y = 5 + index * 2;
+
+      return this.converter({
+        file,
+        index,
+        y
+      }, (error) => {
+        this.slots[index] = false;
+        return callback(error);
+      });
+    }, this.config.concurrency);
 
     this.queue.error((error, task) => {
       this.log(` x error in processing ${ task }`);
@@ -173,16 +191,9 @@ class Indexer {
     return this.media.findOne({ hash }, callback);
   }
 
-  converter (file, callback) {
-    let index;
-    for (index = 0; index < this.slots.length; index++) {
-      if (!this.slots[index]) {
-        this.slots[index] = true;
-        break;
-      }
-    }
-    const y = 5 + index * 2;
-
+  converter ({
+    file, index, y
+  }, callback) {
     this.log(` * examining ${ file }`);
     return fs.stat(file, (error, stat) => {
       if (error) {
@@ -265,13 +276,11 @@ class Indexer {
                   }
                   this.progress.total--;
                   this.tokens.processed++;
-                  this.slots[index] = false;
                   return callback(null, item);
                 });
               }
               this.progress.total--;
               this.tokens.processed++;
-              this.slots[index] = false;
               return callback(null, item);
             });
           }
@@ -438,7 +447,6 @@ class Indexer {
                             spinner.stop();
                             this.progress.value++;
                             this.tokens.processed++;
-                            this.slots[index] = false;
                             return callback(null, model);
                           });
                         }
@@ -446,7 +454,6 @@ class Indexer {
                         spinner.stop();
                         this.progress.value++;
                         this.tokens.processed++;
-                        this.slots[index] = false;
                         return callback(null, model);
                       });
                     });
