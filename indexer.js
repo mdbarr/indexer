@@ -191,6 +191,32 @@ class Indexer {
     return this.media.findOne({ hash }, callback);
   }
 
+  probe (file, callback) {
+    this.log(` * probing detailed information for ${ file }`);
+
+    const probeArgs = this.config.probe.
+      trim().
+      split(/\s+/).
+      map((arg) => {
+        return arg.replace('$file', file);
+      });
+
+    return execFile(this.config.ffprobe, probeArgs, (error, info) => {
+      if (error) {
+        return callback(error);
+      }
+
+      try {
+        info = JSON.parse(info);
+      } catch (exception) {
+        info = null;
+        error = exception;
+      }
+
+      return callback(error, info);
+    });
+  }
+
   converter ({
     file, index, y
   }, callback) {
@@ -379,26 +405,14 @@ class Indexer {
                     return callback(error);
                   }
 
-                  this.log(` * probing converted file information for ${ output }`);
-
-                  const probeArgs = this.config.probe.
-                    trim().
-                    split(/\s+/).
-                    map((arg) => {
-                      return arg.replace('$file', output);
-                    });
-
-                  return execFile(this.config.ffprobe, probeArgs, (error, info) => {
+                  return this.probe(output, (error, info) => {
                     if (error) {
                       return callback(error);
                     }
 
-                    info = JSON.parse(info);
-
                     this.log(` * obtained info for ${ output }`);
 
                     this.log(` * checking for sound in ${ output }`);
-
                     const soundArgs = this.config.sound.
                       trim().
                       split(/\s+/).
