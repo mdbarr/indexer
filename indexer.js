@@ -217,6 +217,22 @@ class Indexer {
     });
   }
 
+  delete (file, callback) {
+    if (this.config.delete) {
+      this.log(` - deleting ${ file }`);
+
+      return fs.unlink(file, (error) => {
+        if (error) {
+          return callback(error);
+        }
+        this.log(` - deleted ${ file }`);
+
+        return callback(null);
+      });
+    }
+    return setImmediate(callback);
+  }
+
   converter ({
     file, index, y
   }, callback) {
@@ -295,19 +311,14 @@ class Indexer {
 
               this.log(` * metadata updated for ${ name }`);
 
-              if (this.config.delete) {
-                return fs.unlink(file, (error) => {
-                  if (error) {
-                    return callback(error);
-                  }
-                  this.progress.total--;
-                  this.tokens.processed++;
-                  return callback(null, item);
-                });
-              }
-              this.progress.total--;
-              this.tokens.processed++;
-              return callback(null, item);
+              return this.delete(file, (error) => {
+                if (error) {
+                  return callback(error);
+                }
+                this.progress.total--;
+                this.tokens.processed++;
+                return callback(null, item);
+              });
             });
           }
 
@@ -447,28 +458,16 @@ class Indexer {
                         }
 
                         this.log(` - inserted ${ name } / ${ id } into db`);
+                        return this.delete(file, (error) => {
+                          if (error) {
+                            return callback(error);
+                          }
 
-                        if (this.config.delete) {
-                          this.log(` - deleting ${ file }`);
-
-                          return fs.unlink(file, (error) => {
-                            if (error) {
-                              return callback(error);
-                            }
-
-                            this.log(` - deleted ${ file }`);
-
-                            spinner.stop();
-                            this.progress.value++;
-                            this.tokens.processed++;
-                            return callback(null, model);
-                          });
-                        }
-
-                        spinner.stop();
-                        this.progress.value++;
-                        this.tokens.processed++;
-                        return callback(null, model);
+                          spinner.stop();
+                          this.progress.value++;
+                          this.tokens.processed++;
+                          return callback(null, model);
+                        });
                       });
                     });
                   });
