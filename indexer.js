@@ -159,6 +159,7 @@ class Indexer {
       id,
       object: 'video',
       version,
+      name: occurrence.name,
       hash: occurrence.hash,
       relative: output.replace(this.config.save, '').replace(/^\//, ''),
       thumbnail: thumbnail.replace(this.config.save, '').replace(/^\//, ''),
@@ -182,6 +183,7 @@ class Indexer {
     };
 
     if (this.tagger) {
+      this.log(` - tagging ${ occurrence.name }`);
       this.tagger(model);
     }
 
@@ -192,29 +194,36 @@ class Indexer {
     return this.media.findOne({ hash }, callback);
   }
 
-  probe (file, callback) {
-    this.log(` * probing detailed information for ${ file }`);
-
-    const probeArgs = this.config.probe.
-      trim().
-      split(/\s+/).
-      map((arg) => {
-        return arg.replace('$file', file);
-      });
-
-    return execFile(this.config.ffprobe, probeArgs, (error, info) => {
+  examine (file, callback) {
+    this.log(` * examining ${ file }`);
+    return fs.stat(file, (error, stat) => {
       if (error) {
         return callback(error);
       }
 
-      try {
-        info = JSON.parse(info);
-      } catch (exception) {
-        info = null;
-        error = exception;
-      }
+      this.log(` * probing detailed information for ${ file }`);
 
-      return callback(error, info);
+      const probeArgs = this.config.probe.
+        trim().
+        split(/\s+/).
+        map((arg) => {
+          return arg.replace('$file', file);
+        });
+
+      return execFile(this.config.ffprobe, probeArgs, (error, info) => {
+        if (error) {
+          return callback(error);
+        }
+
+        try {
+          info = JSON.parse(info);
+        } catch (exception) {
+          info = null;
+          error = exception;
+        }
+
+        return callback(error, stat, info);
+      });
     });
   }
 
@@ -265,91 +274,93 @@ class Indexer {
   converter ({
     file, index, y
   }, callback) {
-    this.log(` * examining ${ file }`);
-    return fs.stat(file, (error, stat) => {
+    const [ , name, extension ] = file.match(/([^/]+)\.([^.]+)$/);
+    const shortName = name.length > 25 ? `${ name.substring(0, 22) }…` : name;
+
+    const prettyName = style(`${ name }.${ extension }`, 'style: bold');
+    const prettyShortName = style(`${ shortName }.${ extension }`, 'style: bold');
+
+    let spinner = new Spinner({
+      prepend: `  Fingerprinting ${ prettyName } `,
+      spinner: 'dots4',
+      style: 'fg: DodgerBlue1',
+      x: 0,
+      y
+    });
+    spinner.start();
+
+    this.log(` * hashing ${ file }`);
+    return execFile(this.config.shasum, [ file ], (error, sha) => {
+      spinner.stop();
+
       if (error) {
         return callback(error);
       }
 
-      const [ , name, extension ] = file.match(/([^/]+)\.([^.]+)$/);
-      const shortName = name.length > 25 ? `${ name.substring(0, 22) }…` : name;
+      const [ hash ] = sha.trim().split(/\s+/);
 
-      const prettyName = style(`${ name }.${ extension }`, 'style: bold');
-      const prettyShortName = style(`${ shortName }.${ extension }`, 'style: bold');
+      this.log(` * hashed ${ file }: ${ hash }`);
 
-      let spinner = new Spinner({
-        prepend: `  Fingerprinting ${ prettyName } `,
-        spinner: 'dots4',
-        style: 'fg: DodgerBlue1',
-        x: 0,
-        y
-      });
-      spinner.start();
+      const occurrence = {
+        hash,
+        file,
+        path: file.replace(/\/([^/]+)$/, '/'),
+        name,
+        extension
+      };
 
-      this.log(` * hashing ${ file }`);
-      return execFile(this.config.shasum, [ file ], (error, sha) => {
-        spinner.stop();
-
+      return this.lookup(hash, (error, item) => {
         if (error) {
           return callback(error);
         }
 
-        const [ hash ] = sha.trim().split(/\s+/);
+        if (item) {
+          this.log(` - match for ${ hash } found`);
 
-        this.log(` * hashed ${ file }: ${ hash }`);
+          this.log(` * updating metadata for ${ name }/${ hash }`);
 
-        const occurrence = {
-          hash,
-          file,
-          path: file.replace(/\/([^/]+)$/, '/'),
-          name,
-          extension,
-          size: stat.size,
-          timestamp: new Date(stat.mtime).getTime()
-        };
+          let found = false;
+          for (const one of item.metadata.occurrences) {
+            if (one.file === occurrence.file) {
+              found = true;
+              break;
+            }
+          }
+          if (found) {
+            this.log(` - existing occurrence found for ${ occurrence.file }`);
+          } else {
+            item.metadata.occurrences.push(occurrence);
+          }
 
-        return this.lookup(hash, (error, item) => {
+          this.log(` - updating tags for ${ name }`);
+          this.tagger(item);
+
+          return this.media.updateOne({ id: item.id }, { $set: item }, (error) => {
+            if (error) {
+              return callback(error);
+            }
+
+            this.log(` * metadata updated for ${ name }`);
+
+            return this.delete(file, (error) => {
+              if (error) {
+                return callback(error);
+              }
+              this.progress.total--;
+              this.tokens.processed++;
+              return callback(null, item);
+            });
+          });
+        }
+
+        this.log(` - no match for ${ hash }`);
+        return this.examine(file, (error, stat) => {
           if (error) {
             return callback(error);
           }
 
-          if (item) {
-            this.log(` - match for ${ hash } found`);
-
-            this.log(` * updating metadata for ${ name }/${ hash }`);
-
-            let found = false;
-            for (const one of item.metadata.occurrences) {
-              if (one.file === occurrence.file) {
-                found = true;
-                break;
-              }
-            }
-            if (found) {
-              this.log(` - existing occurrence found for ${ occurrence.file }`);
-            } else {
-              item.metadata.occurrences.push(occurrence);
-            }
-
-            this.tagger(item);
-
-            return this.media.updateOne({ id: item.id }, { $set: item }, (error) => {
-              if (error) {
-                return callback(error);
-              }
-
-              this.log(` * metadata updated for ${ name }`);
-
-              return this.delete(file, (error) => {
-                if (error) {
-                  return callback(error);
-                }
-                this.progress.total--;
-                this.tokens.processed++;
-                return callback(null, item);
-              });
-            });
-          }
+          occurrence.size = stat.size;
+          occurrence.timestamp = new Date(stat.mtime).getTime();
 
           const id = uuid();
 
@@ -440,51 +451,45 @@ class Indexer {
 
                 this.log(` * generated thumbnail ${ thumbnail }`);
 
-                return fs.stat(output, (error, converted) => {
+                return this.examine(output, (error, converted, info) => {
                   if (error) {
                     return callback(error);
                   }
 
-                  return this.probe(output, (error, info) => {
+                  this.log(` * obtained info for ${ output }`);
+
+                  return this.hasSound(output, (error, sound) => {
                     if (error) {
                       return callback(error);
                     }
 
-                    this.log(` * obtained info for ${ output }`);
+                    const model = this.model({
+                      id,
+                      occurrence,
+                      output,
+                      converted,
+                      thumbnail,
+                      info,
+                      sound
+                    });
 
-                    return this.hasSound(output, (error, sound) => {
+                    this.log(` - inserting ${ name } / ${ id } into db`);
+
+                    return this.media.insertOne(model, (error) => {
                       if (error) {
                         return callback(error);
                       }
 
-                      const model = this.model({
-                        id,
-                        occurrence,
-                        output,
-                        converted,
-                        thumbnail,
-                        info,
-                        sound
-                      });
-
-                      this.log(` - inserting ${ name } / ${ id } into db`);
-
-                      return this.media.insertOne(model, (error) => {
+                      this.log(` - inserted ${ name } / ${ id } into db`);
+                      return this.delete(file, (error) => {
                         if (error) {
                           return callback(error);
                         }
 
-                        this.log(` - inserted ${ name } / ${ id } into db`);
-                        return this.delete(file, (error) => {
-                          if (error) {
-                            return callback(error);
-                          }
-
-                          spinner.stop();
-                          this.progress.value++;
-                          this.tokens.processed++;
-                          return callback(null, model);
-                        });
+                        spinner.stop();
+                        this.progress.value++;
+                        this.tokens.processed++;
+                        return callback(null, model);
                       });
                     });
                   });
