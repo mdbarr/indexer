@@ -35,6 +35,17 @@ function timeToValue (string) {
   return value;
 }
 
+function hasSubtitles (details) {
+  let subtitles = false;
+  for (const stream of details.streams) {
+    if (stream.codec_type === 'subtitle') {
+      subtitles = true;
+      break;
+    }
+  }
+  return subtitles;
+}
+
 //////////
 
 const defaults = {
@@ -47,6 +58,8 @@ const defaults = {
   ffmpeg: '/usr/bin/ffmpeg',
   convert: '-i $input -f $format -vcodec libx264 -preset fast' +
     ' -profile:v main -acodec aac $output -hide_banner -y',
+  convertSubtitles: '-i $input -f $format -vcodec libx264 -preset fast' +
+    ' -profile:v main -acodec aac -vf subtitles=$input $output -hide_banner -y',
   format: 'mp4',
   thumbnailFormat: 'png',
   thumbnail: '-i $output -ss 00:00:05.000 -vframes 1 $thumbnail -y',
@@ -354,7 +367,7 @@ class Indexer {
         }
 
         this.log(` - no match for ${ hash }`);
-        return this.examine(file, (error, stat) => {
+        return this.examine(file, (error, stat, details) => {
           if (error) {
             return callback(error);
           }
@@ -374,7 +387,10 @@ class Indexer {
               return callback(error);
             }
 
-            const convertArgs = this.config.convert.
+            const convertCommand = hasSubtitles(details) ? this.config.convertSubtitles :
+              this.config.convert;
+
+            const convertArgs = convertCommand.
               trim().
               split(/\s+/).
               map((arg) => {
