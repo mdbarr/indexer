@@ -54,6 +54,7 @@ const defaults = {
   ffprobe: '/usr/bin/ffprobe',
   probe: '-v quiet -print_format json -show_format -show_streams -print_format json $file',
   save: join(os.tmpdir(), 'indexer'),
+  checkSound: true,
   delete: false,
   tagger: (model) => {
     if (model.metadata.tags.length === 0) {
@@ -231,6 +232,34 @@ class Indexer {
       });
     }
     return setImmediate(callback);
+  }
+
+  hasSound (file, callback) {
+    if (!this.config.checkSound) {
+      return setImmediate(() => {
+        return callback(null, null);
+      });
+    }
+
+    this.log(` * checking for sound in ${ file }`);
+    const soundArgs = this.config.sound.
+      trim().
+      split(/\s+/).
+      map((arg) => {
+        return arg.replace('$file', file);
+      });
+
+    return execFile(this.config.ffmpeg, soundArgs, (error, stdout, soundInfo) => {
+      if (error) {
+        return callback(error);
+      }
+
+      const sound = !soundInfo.includes('mean_volume: -91');
+
+      this.log(` * sound in ${ file }: ${ sound }`);
+
+      return callback(null, sound);
+    });
   }
 
   converter ({
@@ -423,22 +452,10 @@ class Indexer {
 
                     this.log(` * obtained info for ${ output }`);
 
-                    this.log(` * checking for sound in ${ output }`);
-                    const soundArgs = this.config.sound.
-                      trim().
-                      split(/\s+/).
-                      map((arg) => {
-                        return arg.replace('$file', output);
-                      });
-
-                    return execFile(this.config.ffmpeg, soundArgs, (error, stdout, soundInfo) => {
+                    return this.hasSound(output, (error, sound) => {
                       if (error) {
                         return callback(error);
                       }
-
-                      const sound = !soundInfo.includes('mean_volume: -91');
-
-                      this.log(` * sound in ${ output }: ${ sound }`);
 
                       const model = this.model({
                         id,
