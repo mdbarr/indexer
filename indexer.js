@@ -64,6 +64,10 @@ const defaults = {
   thumbnailFormat: 'png',
   thumbnail: '-i $output -ss 00:00:05.000 -vframes 1 $thumbnail -y',
   sound: '-t 10 -i $file -af volumedetect -f null /dev/null',
+  preview: "-i $input -vf select='lt(mod(t,$interval),1)',setpts=N/FRAME_RATE/TB" +
+    ' -an $output -y -hide_banner',
+  previewFormat: 'webm',
+  previewInterval: 60,
   ffprobe: '/usr/bin/ffprobe',
   probe: '-v quiet -print_format json -show_format -show_streams -print_format json $file',
   save: join(os.tmpdir(), 'indexer'),
@@ -145,7 +149,7 @@ class Indexer {
   }
 
   model ({
-    id, occurrence, output, converted, thumbnail, info, sound
+    id, occurrence, output, converted, thumbnail, preview, info, sound
   }) {
     let duration;
     let aspect;
@@ -176,6 +180,7 @@ class Indexer {
       hash: occurrence.hash,
       relative: output.replace(this.config.save, '').replace(/^\//, ''),
       thumbnail: thumbnail.replace(this.config.save, '').replace(/^\//, ''),
+      preview: preview.replace(this.config.save, '').replace(/^\//, ''),
       size: converted.size,
       duration,
       aspect,
@@ -184,11 +189,15 @@ class Indexer {
       sound,
       timestamp: new Date(converted.mtime).getTime(),
       metadata: {
+        added: Date.now(),
+        updated: Date.now(),
         occurrences: [ occurrence ],
+        series: false,
         views: 0,
         stars: 0,
         favorited: false,
         reviewed: false,
+        private: false,
         description: '',
         categories: [ ],
         tags: [ ]
@@ -198,6 +207,7 @@ class Indexer {
     if (this.tagger) {
       this.log(` - tagging ${ occurrence.name }`);
       this.tagger(model);
+      model.metadata.updated = Date.now();
     }
 
     return model;
@@ -254,6 +264,29 @@ class Indexer {
       });
     }
     return setImmediate(callback);
+  }
+
+  preview (input, output, callback) {
+    const previewArgs = this.config.preview.
+      trim().
+      split(/\s+/).
+      map((arg) => {
+        return arg.replace('$input', input).
+          replace('$output', output).
+          replace('$interval', this.config.previewInterval);
+      });
+
+    this.log(` * generating preview video for ${ input }`);
+
+    return execFile(this.config.ffmpeg, previewArgs, (error) => {
+      if (error) {
+        return callback(error);
+      }
+
+      this.log(` * generated preview video ${ output }`);
+
+      return callback(null, output);
+    });
   }
 
   hasSound (file, callback) {
@@ -347,6 +380,7 @@ class Indexer {
 
           this.log(` - updating tags for ${ name }`);
           this.tagger(item);
+          item.metadata.updated = Date.now();
 
           return this.media.updateOne({ id: item.id }, { $set: item }, (error) => {
             if (error) {
@@ -381,6 +415,7 @@ class Indexer {
           const filename = id.substring(2).replace(/-/g, '');
 
           const output = join(directory, `${ filename }.${ this.config.format }`);
+          const preview = join(directory, `${ filename }.${ this.config.previewFormat }`);
 
           return fs.mkdir(directory, { recursive: true }, (error) => {
             if (error) {
@@ -441,7 +476,7 @@ class Indexer {
               this.log(` * converted ${ name }.${ extension }!`);
 
               spinner = new Spinner({
-                prepend: `  Generating metadata for ${ prettyName } `,
+                prepend: `  Generating preview and metadata for ${ prettyName } `,
                 spinner: 'dots4',
                 style: 'fg: DodgerBlue1',
                 x: 0,
@@ -479,33 +514,40 @@ class Indexer {
                       return callback(error);
                     }
 
-                    const model = this.model({
-                      id,
-                      occurrence,
-                      output,
-                      converted,
-                      thumbnail,
-                      info,
-                      sound
-                    });
-
-                    this.log(` - inserting ${ name } / ${ id } into db`);
-
-                    return this.media.insertOne(model, (error) => {
+                    return this.preview(output, preview, (error) => {
                       if (error) {
                         return callback(error);
                       }
 
-                      this.log(` - inserted ${ name } / ${ id } into db`);
-                      return this.delete(file, (error) => {
+                      const model = this.model({
+                        id,
+                        occurrence,
+                        output,
+                        converted,
+                        thumbnail,
+                        preview,
+                        info,
+                        sound
+                      });
+
+                      this.log(` - inserting ${ name } [${ id }] into db`);
+
+                      return this.media.insertOne(model, (error) => {
                         if (error) {
                           return callback(error);
                         }
 
-                        spinner.stop();
-                        this.progress.value++;
-                        this.tokens.processed++;
-                        return callback(null, model);
+                        this.log(` - inserted ${ name } [${ id }] into db`);
+                        return this.delete(file, (error) => {
+                          if (error) {
+                            return callback(error);
+                          }
+
+                          spinner.stop();
+                          this.progress.value++;
+                          this.tokens.processed++;
+                          return callback(null, model);
+                        });
                       });
                     });
                   });
