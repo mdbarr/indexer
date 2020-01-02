@@ -106,21 +106,30 @@ class Indexer {
     this.slots = new Array(this.config.concurrency);
 
     this.queue = async.queue((file, callback) => {
-      let index;
-      for (index = 0; index < this.slots.length; index++) {
+      const slot = {};
+
+      for (let index = 0; index < this.slots.length; index++) {
         if (!this.slots[index]) {
           this.slots[index] = true;
+          slot.index = index;
           break;
         }
       }
-      const y = 5 + index * 2;
+      slot.y = 5 + slot.index * 2;
 
       return this.converter({
         file,
-        index,
-        y
+        slot
       }, (error) => {
-        this.slots[index] = false;
+        this.slots[slot.index] = false;
+        if (slot.spinner && slot.spinner.stop) {
+          slot.spinner.stop();
+        }
+
+        if (slot.progress && slot.progress.done) {
+          slot.progress.done();
+        }
+
         return callback(error);
       });
     }, this.config.concurrency);
@@ -318,7 +327,7 @@ class Indexer {
   }
 
   converter ({
-    file, index, y
+    file, slot
   }, callback) {
     const [ , name, extension ] = file.match(/([^/]+)\.([^.]+)$/);
     const shortName = name.length > 25 ? `${ name.substring(0, 22) }…` : name;
@@ -326,18 +335,18 @@ class Indexer {
     const prettyName = style(`${ name }.${ extension }`, 'style: bold');
     const prettyShortName = style(`${ shortName }.${ extension }`, 'style: bold');
 
-    let spinner = new Spinner({
+    slot.spinner = new Spinner({
       prepend: `  Fingerprinting ${ prettyName } `,
       spinner: 'dots4',
       style: 'fg: DodgerBlue1',
       x: 0,
-      y
+      y: slot.y
     });
-    spinner.start();
+    slot.spinner.start();
 
     this.log(` * hashing ${ file }`);
     return execFile(this.config.shasum, [ file ], (error, sha) => {
-      spinner.stop();
+      slot.spinner.stop();
 
       if (error) {
         return callback(error);
@@ -434,14 +443,14 @@ class Indexer {
                   replace('$format', this.config.format);
               });
 
-            this.log(` * converting ${ name }.${ extension } in slot ${ index }`);
+            this.log(` * converting ${ name }.${ extension } in slot ${ slot.index }`);
 
-            const progress = new ProgressBar({
+            slot.progress = new ProgressBar({
               format: `  Converting ${ prettyShortName } $left$progress$right ` +
                 '$percent ($eta remaining)',
               total: Infinity,
               width: 40,
-              y,
+              y: slot.y,
               complete: style('━', 'fg: Green4'),
               head: style('▶', 'fg: Green4'),
               clear: true,
@@ -456,17 +465,17 @@ class Indexer {
               data = data.toString();
               log += data;
 
-              if (progress.total === Infinity && durationRegExp.test(log)) {
+              if (slot.progress.total === Infinity && durationRegExp.test(log)) {
                 const [ , duration ] = log.match(durationRegExp);
-                progress.total = timeToValue(duration);
+                slot.progress.total = timeToValue(duration);
               } else if (timeRegExp.test(data)) {
                 const [ , time ] = data.match(timeRegExp);
-                progress.value = timeToValue(time);
+                slot.progress.value = timeToValue(time);
               }
             });
 
             convert.on('exit', (code) => {
-              progress.done();
+              slot.progress.done();
 
               if (code !== 0) {
                 this.log(` ! failed to convert ${ name }.${ extension }`);
@@ -475,14 +484,14 @@ class Indexer {
 
               this.log(` * converted ${ name }.${ extension }!`);
 
-              spinner = new Spinner({
+              slot.spinner = new Spinner({
                 prepend: `  Generating preview and metadata for ${ prettyName } `,
                 spinner: 'dots4',
                 style: 'fg: DodgerBlue1',
                 x: 0,
-                y
+                y: slot.y
               });
-              spinner.start();
+              slot.spinner.start();
 
               const thumbnail = output.replace(this.config.format, this.config.thumbnailFormat);
               const thumbnailArgs = this.config.thumbnail.
@@ -543,7 +552,7 @@ class Indexer {
                             return callback(error);
                           }
 
-                          spinner.stop();
+                          slot.spinner.stop();
                           this.progress.value++;
                           this.tokens.processed++;
                           return callback(null, model);
