@@ -11,10 +11,10 @@
   "dependencies": {
     "@mdbarr/events": "^0.1.6",
     "async": "^3.1.0",
-    "barrkeep": "^2.5.0",
+    "barrkeep": "^2.6.0",
     "mongodb": "^3.4.1",
     "uuid": "^3.3.3",
-    "yargs": "^15.0.2"
+    "yargs": "^15.1.0"
   },
   "devDependencies": {
     "eslint": "^6.8.0"
