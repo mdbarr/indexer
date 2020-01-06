@@ -188,6 +188,8 @@ class Indexer {
       }
     }
 
+    const timestamp = Date.now();
+
     const model = {
       id,
       object: 'video',
@@ -203,10 +205,10 @@ class Indexer {
       width,
       height,
       sound,
-      timestamp: new Date(converted.mtime).getTime(),
       metadata: {
-        added: Date.now(),
-        updated: Date.now(),
+        created: new Date(converted.mtime).getTime(),
+        added: timestamp,
+        updated: timestamp,
         occurrences: [ occurrence ],
         series: false,
         views: 0,
