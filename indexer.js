@@ -73,9 +73,16 @@ const defaults = {
   save: join(os.tmpdir(), 'indexer'),
   checkSound: true,
   delete: false,
-  tagger: (model) => {
+  tagger: (model, config) => {
+    if (config.dropTags) {
+      model.metadata.tags = [];
+    }
     if (model.metadata.tags.length === 0) {
       model.metadata.tags.push('untagged');
+    }
+
+    if (config.dropCategories) {
+      model.metadata.categories = [];
     }
     if (model.metadata.categories.length === 0) {
       model.metadata.categories.push('uncategorized');
@@ -215,7 +222,7 @@ class Indexer {
 
     if (this.tagger) {
       this.log(` - tagging ${ occurrence.name }`);
-      this.tagger(model);
+      this.tagger(model, this.config);
       model.metadata.updated = Date.now();
     }
 
@@ -388,7 +395,7 @@ class Indexer {
           }
 
           this.log(` - updating tags for ${ name }`);
-          this.tagger(item);
+          this.tagger(item, this.config);
           item.metadata.updated = Date.now();
 
           return this.media.updateOne({ id: item.id }, { $set: item }, (error) => {
