@@ -73,19 +73,14 @@ const defaults = {
   save: join(os.tmpdir(), 'indexer'),
   checkSound: true,
   delete: false,
+  canSkip: true,
+  dropTags: false,
   tagger: (model, config) => {
     if (config.dropTags) {
       model.metadata.tags = [];
     }
     if (model.metadata.tags.length === 0) {
       model.metadata.tags.push('untagged');
-    }
-
-    if (config.dropCategories) {
-      model.metadata.categories = [];
-    }
-    if (model.metadata.categories.length === 0) {
-      model.metadata.categories.push('uncategorized');
     }
   },
   log: join(process.cwd(), 'indexer.log')
@@ -216,8 +211,6 @@ class Indexer {
         favorited: false,
         reviewed: false,
         private: false,
-        description: '',
-        categories: [ ],
         tags: [ ]
       }
     };
@@ -233,6 +226,19 @@ class Indexer {
 
   lookup (hash, callback) {
     return this.media.findOne({ hash }, callback);
+  }
+
+  skipFile (file, callback) {
+    if (this.config.canSkip && !this.config.delete) {
+      return this.media.findOne({ 'metadata.occurrences.file': file }, (error, item) => {
+        if (error) {
+          return callback(error);
+        }
+        this.log(` - existing entry found for ${ file }`);
+        return callback(null, Boolean(item));
+      });
+    }
+    return setImmediate(callback, null, false);
   }
 
   examine (file, callback) {
@@ -338,242 +344,255 @@ class Indexer {
   converter ({
     file, slot
   }, callback) {
-    const [ , name, extension ] = file.match(/([^/]+)\.([^.]+)$/);
-    const shortName = name.length > 25 ? `${ name.substring(0, 22) }…` : name;
-
-    const prettyName = style(`${ name }.${ extension }`, 'style: bold');
-    const prettyShortName = style(`${ shortName }.${ extension }`, 'style: bold');
-
-    slot.spinner = new Spinner({
-      prepend: `  Fingerprinting ${ prettyName } `,
-      spinner: 'dots4',
-      style: 'fg: DodgerBlue1',
-      x: 0,
-      y: slot.y
-    });
-    slot.spinner.start();
-
-    this.log(` * hashing ${ file }`);
-    return execFile(this.config.shasum, [ file ], (error, sha) => {
-      slot.spinner.stop();
-
+    return this.skipFile(file, (error, skip) => {
       if (error) {
         return callback(error);
       }
 
-      const [ hash ] = sha.trim().split(/\s+/);
+      if (skip) {
+        this.log(` - skipping file due to existing entry ${ file }`);
+        this.progress.total--;
+        this.tokens.processed++;
+        return callback(null);
+      }
 
-      this.log(` * hashed ${ file }: ${ hash }`);
+      const [ , name, extension ] = file.match(/([^/]+)\.([^.]+)$/);
+      const shortName = name.length > 25 ? `${ name.substring(0, 22) }…` : name;
 
-      const occurrence = {
-        hash,
-        file,
-        path: file.replace(/\/([^/]+)$/, '/'),
-        name,
-        extension
-      };
+      const prettyName = style(`${ name }.${ extension }`, 'style: bold');
+      const prettyShortName = style(`${ shortName }.${ extension }`, 'style: bold');
 
-      return this.lookup(hash, (error, item) => {
+      slot.spinner = new Spinner({
+        prepend: `  Fingerprinting ${ prettyName } `,
+        spinner: 'dots4',
+        style: 'fg: DodgerBlue1',
+        x: 0,
+        y: slot.y
+      });
+      slot.spinner.start();
+
+      this.log(` * hashing ${ file }`);
+      return execFile(this.config.shasum, [ file ], (error, sha) => {
+        slot.spinner.stop();
+
         if (error) {
           return callback(error);
         }
 
-        if (item) {
-          this.log(` - match for ${ hash } found`);
+        const [ hash ] = sha.trim().split(/\s+/);
 
-          this.log(` * updating metadata for ${ name }/${ hash }`);
+        this.log(` * hashed ${ file }: ${ hash }`);
 
-          let found = false;
-          for (const one of item.metadata.occurrences) {
-            if (one.file === occurrence.file) {
-              found = true;
-              break;
-            }
-          }
-          if (found) {
-            this.log(` - existing occurrence found for ${ occurrence.file }`);
-          } else {
-            item.metadata.occurrences.push(occurrence);
-          }
+        const occurrence = {
+          hash,
+          file,
+          path: file.replace(/\/([^/]+)$/, '/'),
+          name,
+          extension
+        };
 
-          this.log(` - updating tags for ${ name }`);
-          this.tagger(item, this.config);
-          item.metadata.updated = Date.now();
-
-          return this.media.updateOne({ id: item.id }, { $set: item }, (error) => {
-            if (error) {
-              return callback(error);
-            }
-
-            this.log(` * metadata updated for ${ name }`);
-
-            return this.delete(file, (error) => {
-              if (error) {
-                return callback(error);
-              }
-              this.progress.total--;
-              this.tokens.processed++;
-              return callback(null, item);
-            });
-          });
-        }
-
-        this.log(` - no match for ${ hash }`);
-        return this.examine(file, (error, stat, details) => {
+        return this.lookup(hash, (error, item) => {
           if (error) {
             return callback(error);
           }
 
-          occurrence.size = stat.size;
-          occurrence.timestamp = new Date(stat.mtime).getTime();
+          if (item) {
+            this.log(` - match for ${ hash } found`);
 
-          const id = uuid();
+            this.log(` * updating metadata for ${ name }/${ hash }`);
 
-          const directory = join(this.config.save, id.substring(0, 2));
-          const filename = id.substring(2).replace(/-/g, '');
+            let found = false;
+            for (const one of item.metadata.occurrences) {
+              if (one.file === occurrence.file) {
+                found = true;
+                break;
+              }
+            }
+            if (found) {
+              this.log(` - existing occurrence found for ${ occurrence.file }`);
+            } else {
+              item.metadata.occurrences.push(occurrence);
+            }
 
-          const output = join(directory, `${ filename }.${ this.config.format }`);
-          const preview = join(directory, `${ filename }.${ this.config.previewFormat }`);
+            this.log(` - updating tags for ${ name }`);
+            this.tagger(item, this.config);
+            item.metadata.updated = Date.now();
 
-          return fs.mkdir(directory, { recursive: true }, (error) => {
+            return this.media.updateOne({ id: item.id }, { $set: item }, (error) => {
+              if (error) {
+                return callback(error);
+              }
+
+              this.log(` * metadata updated for ${ name }`);
+
+              return this.delete(file, (error) => {
+                if (error) {
+                  return callback(error);
+                }
+                this.progress.total--;
+                this.tokens.processed++;
+                return callback(null, item);
+              });
+            });
+          }
+
+          this.log(` - no match for ${ hash }`);
+          return this.examine(file, (error, stat, details) => {
             if (error) {
               return callback(error);
             }
 
-            const convertCommand = hasSubtitles(details) ? this.config.convertSubtitles :
-              this.config.convert;
+            occurrence.size = stat.size;
+            occurrence.timestamp = new Date(stat.mtime).getTime();
 
-            const convertArgs = convertCommand.
-              trim().
-              split(/\s+/).
-              map((arg) => {
-                return arg.replace('$input', file).
-                  replace('$output', output).
-                  replace('$format', this.config.format);
-              });
+            const id = uuid();
 
-            this.log(` * converting ${ name }.${ extension } in slot ${ slot.index }`);
+            const directory = join(this.config.save, id.substring(0, 2));
+            const filename = id.substring(2).replace(/-/g, '');
 
-            slot.progress = new ProgressBar({
-              format: `  Converting ${ prettyShortName } $left$progress$right ` +
-                '$percent ($eta remaining)',
-              total: Infinity,
-              width: 40,
-              y: slot.y,
-              complete: style('━', 'fg: Green4'),
-              head: style('▶', 'fg: Green4'),
-              clear: true,
-              tokens: this.tokens
-            });
+            const output = join(directory, `${ filename }.${ this.config.format }`);
+            const preview = join(directory, `${ filename }.${ this.config.previewFormat }`);
 
-            const convert = spawn(this.config.ffmpeg, convertArgs,
-              { stdio: [ 'ignore', 'ignore', 'pipe' ] });
-
-            let log = '';
-            convert.stderr.on('data', (data) => {
-              data = data.toString();
-              log += data;
-
-              if (slot.progress.total === Infinity && durationRegExp.test(log)) {
-                const [ , duration ] = log.match(durationRegExp);
-                slot.progress.total = timeToValue(duration);
-              } else if (timeRegExp.test(data)) {
-                const [ , time ] = data.match(timeRegExp);
-                slot.progress.value = timeToValue(time);
-              }
-            });
-
-            convert.on('exit', (code) => {
-              slot.progress.done();
-
-              if (code !== 0) {
-                this.log(` ! failed to convert ${ name }.${ extension }`);
-                return callback(new Error(`Failed to convert ${ name }.${ extension }`));
+            return fs.mkdir(directory, { recursive: true }, (error) => {
+              if (error) {
+                return callback(error);
               }
 
-              this.log(` * converted ${ name }.${ extension }!`);
+              const convertCommand = hasSubtitles(details) ? this.config.convertSubtitles :
+                this.config.convert;
 
-              slot.spinner = new Spinner({
-                prepend: `  Generating preview and metadata for ${ prettyName } `,
-                spinner: 'dots4',
-                style: 'fg: DodgerBlue1',
-                x: 0,
-                y: slot.y
-              });
-              slot.spinner.start();
-
-              const thumbnail = output.replace(this.config.format, this.config.thumbnailFormat);
-              const thumbnailArgs = this.config.thumbnail.
+              const convertArgs = convertCommand.
                 trim().
                 split(/\s+/).
                 map((arg) => {
-                  return arg.replace('$output', output).
-                    replace('$thumbnail', thumbnail);
+                  return arg.replace('$input', file).
+                    replace('$output', output).
+                    replace('$format', this.config.format);
                 });
 
-              this.log(` * generating thumbnail ${ thumbnail }`);
+              this.log(` * converting ${ name }.${ extension } in slot ${ slot.index }`);
 
-              return execFile(this.config.ffmpeg, thumbnailArgs, (error) => {
-                if (error) {
-                  return callback(error);
+              slot.progress = new ProgressBar({
+                format: `  Converting ${ prettyShortName } $left$progress$right ` +
+                '$percent ($eta remaining)',
+                total: Infinity,
+                width: 40,
+                y: slot.y,
+                complete: style('━', 'fg: Green4'),
+                head: style('▶', 'fg: Green4'),
+                clear: true,
+                tokens: this.tokens
+              });
+
+              const convert = spawn(this.config.ffmpeg, convertArgs,
+                { stdio: [ 'ignore', 'ignore', 'pipe' ] });
+
+              let log = '';
+              convert.stderr.on('data', (data) => {
+                data = data.toString();
+                log += data;
+
+                if (slot.progress.total === Infinity && durationRegExp.test(log)) {
+                  const [ , duration ] = log.match(durationRegExp);
+                  slot.progress.total = timeToValue(duration);
+                } else if (timeRegExp.test(data)) {
+                  const [ , time ] = data.match(timeRegExp);
+                  slot.progress.value = timeToValue(time);
+                }
+              });
+
+              convert.on('exit', (code) => {
+                slot.progress.done();
+
+                if (code !== 0) {
+                  this.log(` ! failed to convert ${ name }.${ extension }`);
+                  return callback(new Error(`Failed to convert ${ name }.${ extension }`));
                 }
 
-                this.log(` * generated thumbnail ${ thumbnail }`);
+                this.log(` * converted ${ name }.${ extension }!`);
 
-                return this.examine(output, (error, converted, info) => {
+                slot.spinner = new Spinner({
+                  prepend: `  Generating preview and metadata for ${ prettyName } `,
+                  spinner: 'dots4',
+                  style: 'fg: DodgerBlue1',
+                  x: 0,
+                  y: slot.y
+                });
+                slot.spinner.start();
+
+                const thumbnail = output.replace(this.config.format, this.config.thumbnailFormat);
+                const thumbnailArgs = this.config.thumbnail.
+                  trim().
+                  split(/\s+/).
+                  map((arg) => {
+                    return arg.replace('$output', output).
+                      replace('$thumbnail', thumbnail);
+                  });
+
+                this.log(` * generating thumbnail ${ thumbnail }`);
+
+                return execFile(this.config.ffmpeg, thumbnailArgs, (error) => {
                   if (error) {
                     return callback(error);
                   }
 
-                  this.log(` * obtained info for ${ output }`);
+                  this.log(` * generated thumbnail ${ thumbnail }`);
 
-                  return this.hasSound(output, (error, sound) => {
+                  return this.examine(output, (error, converted, info) => {
                     if (error) {
                       return callback(error);
                     }
 
-                    return this.preview(output, preview, (error) => {
+                    this.log(` * obtained info for ${ output }`);
+
+                    return this.hasSound(output, (error, sound) => {
                       if (error) {
                         return callback(error);
                       }
 
-                      const model = this.model({
-                        id,
-                        occurrence,
-                        output,
-                        converted,
-                        thumbnail,
-                        preview,
-                        info,
-                        sound
-                      });
-
-                      this.log(` - inserting ${ name } [${ id }] into db`);
-
-                      return this.media.insertOne(model, (error) => {
+                      return this.preview(output, preview, (error) => {
                         if (error) {
                           return callback(error);
                         }
 
-                        this.log(` - inserted ${ name } [${ id }] into db`);
-                        return this.delete(file, (error) => {
+                        const model = this.model({
+                          id,
+                          occurrence,
+                          output,
+                          converted,
+                          thumbnail,
+                          preview,
+                          info,
+                          sound
+                        });
+
+                        this.log(` - inserting ${ name } [${ id }] into db`);
+
+                        return this.media.insertOne(model, (error) => {
                           if (error) {
                             return callback(error);
                           }
 
-                          slot.spinner.stop();
-                          this.progress.value++;
-                          this.tokens.processed++;
-                          return callback(null, model);
+                          this.log(` - inserted ${ name } [${ id }] into db`);
+                          return this.delete(file, (error) => {
+                            if (error) {
+                              return callback(error);
+                            }
+
+                            slot.spinner.stop();
+                            this.progress.value++;
+                            this.tokens.processed++;
+                            return callback(null, model);
+                          });
                         });
                       });
                     });
                   });
                 });
               });
-            });
 
-            return convert;
+              return convert;
+            });
           });
         });
       });
