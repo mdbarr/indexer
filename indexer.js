@@ -6,7 +6,7 @@ const os = require('os');
 const async = require('async');
 const uuid = require('uuid/v4');
 const { join } = require('path');
-const { format } = require('util');
+const winston = require('winston');
 const Scanner = require('./scanner');
 const utils = require('barrkeep/utils');
 const style = require('barrkeep/style');
@@ -45,6 +45,12 @@ function hasSubtitles (details) {
   }
   return subtitles;
 }
+
+const logFormat = winston.format.combine(
+  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+  winston.format.printf(info => {
+    return `[${ info.timestamp }] ${ info.level }: ${ info.message }`;
+  }));
 
 //////////
 
@@ -85,7 +91,10 @@ const defaults = {
 
     setImmediate(callback, null, model);
   },
-  log: join(process.cwd(), 'indexer.log')
+  logs: {
+    combined: join(process.cwd(), 'indexer.log'),
+    error: join(process.cwd(), 'error.log')
+  }
 };
 
 class Indexer {
@@ -96,15 +105,20 @@ class Indexer {
       this.tagger = this.config.tagger;
     }
 
-    if (this.config.log) {
-      this.logStream = fs.createWriteStream(this.config.log, {
-        flags: 'a',
-        autoclose: true
-      });
+    this.log = winston.createLogger({ level: 'info' });
 
-      this.log = (...args) => { this.logStream.write(`${ format(...args) }\n`); };
-    } else {
-      this.log = () => {};
+    if (this.config.logs.combined) {
+      this.log.add(new winston.transports.File({
+        format: logFormat,
+        filename: this.config.logs.combined
+      }));
+    }
+    if (this.config.logs.error) {
+      this.log.add(new winston.transports.File({
+        format: logFormat,
+        filename: this.config.logs.error,
+        level: 'error'
+      }));
     }
 
     this.slots = new Array(this.config.concurrency);
@@ -139,8 +153,8 @@ class Indexer {
     }, this.config.concurrency);
 
     this.queue.error((error, task) => {
-      this.log(` x error in processing ${ task }`);
-      this.log(error);
+      this.log.error(` x error in processing ${ task }`);
+      this.log.error(error);
 
       if (this.progress) {
         this.progress.total--;
@@ -165,7 +179,7 @@ class Indexer {
     if (!this.tagger) {
       return setImmediate(callback, null, model);
     }
-    this.log(` - tagging ${ model.name }`);
+    this.log.info(`tagging ${ model.name }`);
 
     if (this.tagger.length < 3) { // i.e. no callback
       const result = this.tagger(model, this.config);
@@ -264,7 +278,7 @@ class Indexer {
         if (error) {
           return callback(error);
         }
-        this.log(` - existing entry found for ${ file }`);
+        this.log.info(`existing entry found for ${ file }`);
         return callback(null, Boolean(item));
       });
     }
@@ -272,13 +286,13 @@ class Indexer {
   }
 
   examine (file, callback) {
-    this.log(` * examining ${ file }`);
+    this.log.info(`examining ${ file }`);
     return fs.stat(file, (error, stat) => {
       if (error) {
         return callback(error);
       }
 
-      this.log(` * probing detailed information for ${ file }`);
+      this.log.info(`probing detailed information for ${ file }`);
 
       const probeArgs = this.config.probe.
         trim().
@@ -306,13 +320,13 @@ class Indexer {
 
   delete (file, callback) {
     if (this.config.delete) {
-      this.log(` - deleting ${ file }`);
+      this.log.info(`deleting ${ file }`);
 
       return fs.unlink(file, (error) => {
         if (error) {
           return callback(error);
         }
-        this.log(` - deleted ${ file }`);
+        this.log.info(`deleted ${ file }`);
 
         return callback(null);
       });
@@ -330,14 +344,14 @@ class Indexer {
           replace('$interval', this.config.previewInterval);
       });
 
-    this.log(` * generating preview video for ${ input }`);
+    this.log.info(`generating preview video for ${ input }`);
 
     return execFile(this.config.ffmpeg, previewArgs, (error) => {
       if (error) {
         return callback(error);
       }
 
-      this.log(` * generated preview video ${ output }`);
+      this.log.info(`generated preview video ${ output }`);
 
       return callback(null, output);
     });
@@ -350,7 +364,7 @@ class Indexer {
       });
     }
 
-    this.log(` * checking for sound in ${ file }`);
+    this.log.info(`checking for sound in ${ file }`);
     const soundArgs = this.config.sound.
       trim().
       split(/\s+/).
@@ -365,7 +379,7 @@ class Indexer {
 
       const sound = !soundInfo.includes('mean_volume: -91');
 
-      this.log(` * sound in ${ file }: ${ sound }`);
+      this.log.info(`sound in ${ file }: ${ sound }`);
 
       return callback(null, sound);
     });
@@ -380,7 +394,7 @@ class Indexer {
       }
 
       if (skip) {
-        this.log(` - skipping file due to existing entry ${ file }`);
+        this.log.info(`skipping file due to existing entry ${ file }`);
         this.progress.total--;
         this.tokens.processed++;
         return callback(null);
@@ -401,7 +415,7 @@ class Indexer {
       });
       slot.spinner.start();
 
-      this.log(` * hashing ${ file }`);
+      this.log.info(`hashing ${ file }`);
       return execFile(this.config.shasum, [ file ], (error, sha) => {
         slot.spinner.stop();
 
@@ -411,7 +425,7 @@ class Indexer {
 
         const [ hash ] = sha.trim().split(/\s+/);
 
-        this.log(` * hashed ${ file }: ${ hash }`);
+        this.log.info(`hashed ${ file }: ${ hash }`);
 
         const occurrence = {
           hash,
@@ -427,9 +441,9 @@ class Indexer {
           }
 
           if (item) {
-            this.log(` - match for ${ hash } found`);
+            this.log.info(`match for ${ hash } found`);
 
-            this.log(` * updating metadata for ${ name }/${ hash }`);
+            this.log.info(`updating metadata for ${ name }/${ hash }`);
 
             let found = false;
             for (const one of item.metadata.occurrences) {
@@ -439,12 +453,12 @@ class Indexer {
               }
             }
             if (found) {
-              this.log(` - existing occurrence found for ${ occurrence.file }`);
+              this.log.info(`existing occurrence found for ${ occurrence.file }`);
             } else {
               item.metadata.occurrences.push(occurrence);
             }
 
-            this.log(` - updating tags for ${ name }`);
+            this.log.info(`updating tags for ${ name }`);
             return this.tag(item, (error, model) => {
               if (error) {
                 return callback(error);
@@ -455,7 +469,7 @@ class Indexer {
                   return callback(error);
                 }
 
-                this.log(` * metadata updated for ${ name }`);
+                this.log.info(`metadata updated for ${ name }`);
 
                 return this.delete(file, (error) => {
                   if (error) {
@@ -469,7 +483,7 @@ class Indexer {
             });
           }
 
-          this.log(` - no match for ${ hash }`);
+          this.log.info(`no match for ${ hash }`);
           return this.examine(file, (error, stat, details) => {
             if (error) {
               return callback(error);
@@ -503,7 +517,7 @@ class Indexer {
                     replace('$format', this.config.format);
                 });
 
-              this.log(` * converting ${ name }.${ extension } in slot ${ slot.index }`);
+              this.log.info(`converting ${ name }.${ extension } in slot ${ slot.index }`);
 
               slot.progress = new ProgressBar({
                 format: `  Converting ${ prettyShortName } $left$progress$right ` +
@@ -538,11 +552,11 @@ class Indexer {
                 slot.progress.done();
 
                 if (code !== 0) {
-                  this.log(` ! failed to convert ${ name }.${ extension }`);
+                  this.log.error(`failed to convert ${ name }.${ extension }`);
                   return callback(new Error(`Failed to convert ${ name }.${ extension }`));
                 }
 
-                this.log(` * converted ${ name }.${ extension }!`);
+                this.log.info(`converted ${ name }.${ extension }!`);
 
                 slot.spinner = new Spinner({
                   prepend: `  Generating preview and metadata for ${ prettyName } `,
@@ -562,21 +576,21 @@ class Indexer {
                       replace('$thumbnail', thumbnail);
                   });
 
-                this.log(` * generating thumbnail ${ thumbnail }`);
+                this.log.info(`generating thumbnail ${ thumbnail }`);
 
                 return execFile(this.config.ffmpeg, thumbnailArgs, (error) => {
                   if (error) {
                     return callback(error);
                   }
 
-                  this.log(` * generated thumbnail ${ thumbnail }`);
+                  this.log.info(`generated thumbnail ${ thumbnail }`);
 
                   return this.examine(output, (error, converted, info) => {
                     if (error) {
                       return callback(error);
                     }
 
-                    this.log(` * obtained info for ${ output }`);
+                    this.log.info(`obtained info for ${ output }`);
 
                     return this.hasSound(output, (error, sound) => {
                       if (error) {
@@ -604,14 +618,14 @@ class Indexer {
                             return callback(error);
                           }
 
-                          this.log(` - inserting ${ name } [${ id }] into db`);
+                          this.log.info(`inserting ${ name } [${ id }] into db`);
 
                           return this.media.insertOne(model, (error) => {
                             if (error) {
                               return callback(error);
                             }
 
-                            this.log(` - inserted ${ name } [${ id }] into db`);
+                            this.log.info(`inserted ${ name } [${ id }] into db`);
                             return this.delete(file, (error) => {
                               if (error) {
                                 return callback(error);
@@ -639,7 +653,7 @@ class Indexer {
   }
 
   scan (callback) {
-    this.log(' - scanning...');
+    this.log.info('scanning...');
 
     this.progress = new ProgressBar({
       format: ' Processed $processed/$files files $left$progress$right ' +
@@ -684,7 +698,7 @@ class Indexer {
       useUnifiedTopology: true
     });
 
-    this.log(` - connecting to ${ this.config.db }...`);
+    this.log.info(`connecting to ${ this.config.db }...`);
     return this.client.connect((error) => {
       if (error) {
         return callback(error);
