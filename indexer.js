@@ -75,13 +75,15 @@ const defaults = {
   delete: false,
   canSkip: true,
   dropTags: false,
-  tagger: (model, config) => {
+  tagger: (model, config, callback) => {
     if (config.dropTags) {
       model.metadata.tags = [];
     }
     if (model.metadata.tags.length === 0) {
       model.metadata.tags.push('untagged');
     }
+
+    setImmediate(callback, null, model);
   },
   log: join(process.cwd(), 'indexer.log')
 };
@@ -159,6 +161,40 @@ class Indexer {
     };
   }
 
+  tag (model, callback) {
+    if (!this.tagger) {
+      return setImmediate(callback, null, model);
+    }
+    this.log(` - tagging ${ model.name }`);
+
+    if (this.tagger.length < 3) { // i.e. no callback
+      const result = this.tagger(model, this.config);
+
+      if (result instanceof Promise) {
+        return result.
+          then(() => {
+            model.metadata.updated = Date.now();
+            return callback(null, model);
+          }).
+          catch((error) => {
+            return callback(error);
+          });
+      }
+
+      model.metadata.updated = Date.now();
+      return setImmediate(callback, null, model);
+    }
+    return this.tagger(model, this.config, (error) => {
+      if (error) {
+        return callback(error);
+      }
+
+      model.metadata.updated = Date.now();
+
+      return callback(null, model);
+    });
+  }
+
   model ({
     id, occurrence, output, converted, thumbnail, preview, info, sound
   }) {
@@ -214,12 +250,6 @@ class Indexer {
         tags: [ ]
       }
     };
-
-    if (this.tagger) {
-      this.log(` - tagging ${ occurrence.name }`);
-      this.tagger(model, this.config);
-      model.metadata.updated = Date.now();
-    }
 
     return model;
   }
@@ -415,23 +445,26 @@ class Indexer {
             }
 
             this.log(` - updating tags for ${ name }`);
-            this.tagger(item, this.config);
-            item.metadata.updated = Date.now();
-
-            return this.media.updateOne({ id: item.id }, { $set: item }, (error) => {
+            return this.tag(item, (error, model) => {
               if (error) {
                 return callback(error);
               }
 
-              this.log(` * metadata updated for ${ name }`);
-
-              return this.delete(file, (error) => {
+              return this.media.updateOne({ id: item.id }, { $set: model }, (error) => {
                 if (error) {
                   return callback(error);
                 }
-                this.progress.total--;
-                this.tokens.processed++;
-                return callback(null, item);
+
+                this.log(` * metadata updated for ${ name }`);
+
+                return this.delete(file, (error) => {
+                  if (error) {
+                    return callback(error);
+                  }
+                  this.progress.total--;
+                  this.tokens.processed++;
+                  return callback(null, item);
+                });
               });
             });
           }
@@ -566,23 +599,29 @@ class Indexer {
                           sound
                         });
 
-                        this.log(` - inserting ${ name } [${ id }] into db`);
-
-                        return this.media.insertOne(model, (error) => {
+                        return this.tag(model, (error) => {
                           if (error) {
                             return callback(error);
                           }
 
-                          this.log(` - inserted ${ name } [${ id }] into db`);
-                          return this.delete(file, (error) => {
+                          this.log(` - inserting ${ name } [${ id }] into db`);
+
+                          return this.media.insertOne(model, (error) => {
                             if (error) {
                               return callback(error);
                             }
 
-                            slot.spinner.stop();
-                            this.progress.value++;
-                            this.tokens.processed++;
-                            return callback(null, model);
+                            this.log(` - inserted ${ name } [${ id }] into db`);
+                            return this.delete(file, (error) => {
+                              if (error) {
+                                return callback(error);
+                              }
+
+                              slot.spinner.stop();
+                              this.progress.value++;
+                              this.tokens.processed++;
+                              return callback(null, model);
+                            });
                           });
                         });
                       });
