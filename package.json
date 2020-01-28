@@ -10,10 +10,10 @@
   "private": false,
   "dependencies": {
     "@mdbarr/events": "^0.1.6",
-    "async": "^3.1.0",
+    "async": "^3.1.1",
     "barrkeep": "^2.6.0",
-    "mongodb": "^3.4.1",
-    "uuid": "^3.3.3",
+    "mongodb": "^3.5.2",
+    "uuid": "^3.4.0",
     "winston": "^3.2.1",
     "yargs": "^15.1.0"
   },
