@@ -32,16 +32,16 @@ class Scanner extends EventBus {
         stats.directories++;
 
         for (const entry of entries) {
+          if (dotfiles === false && entry.name.startsWith('.')) {
+            continue;
+          }
+
           const path = join(directory, entry.name);
 
           if (entry.isDirectory() && recursive) {
             this.queue.push(path);
           } else if (entry.isFile() && !this.seen.has(path) &&
                      pattern.test(entry.name)) {
-            if (dotfiles === false && entry.name.startsWith('.')) {
-              return next();
-            }
-
             this.seen.has(path);
             stats.files++;
 
