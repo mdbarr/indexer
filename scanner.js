@@ -8,13 +8,13 @@ const { EventBus } = require('@mdbarr/events');
 class Scanner extends EventBus {
   constructor ({
     pattern = /\.(asf|avi|flv|mkv|mpg|mp4|m4v|wmv|3gp)$/,
-    concurrency = 1, recursive = true, dotfiles = false
+    concurrency = 1, recursive = true, dotfiles = false,
   } = {}) {
     super();
 
     const stats = {
       directories: 0,
-      files: 0
+      files: 0,
     };
 
     this.seen = new Set();
@@ -49,8 +49,8 @@ class Scanner extends EventBus {
               type: 'file',
               data: {
                 index: stats.files,
-                path
-              }
+                path,
+              },
             });
           }
         }
@@ -62,7 +62,7 @@ class Scanner extends EventBus {
     this.queue.drain(() => {
       this.emit({
         type: 'done',
-        data: stats
+        data: stats,
       });
     });
   }

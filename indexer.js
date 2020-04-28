@@ -12,10 +12,10 @@ const utils = require('barrkeep/utils');
 const style = require('barrkeep/style');
 const MongoClient = require('mongodb').MongoClient;
 const {
-  ProgressBar, Spinner
+  ProgressBar, Spinner,
 } = require('barrkeep/progress');
 const {
-  execFile, spawn
+  execFile, spawn,
 } = require('child_process');
 
 const version = require('./package.json').version;
@@ -94,8 +94,8 @@ const defaults = {
   },
   logs: {
     combined: join(process.cwd(), 'indexer.log'),
-    error: join(process.cwd(), 'error.log')
-  }
+    error: join(process.cwd(), 'error.log'),
+  },
 };
 
 class Indexer {
@@ -111,14 +111,14 @@ class Indexer {
     if (this.config.logs.combined) {
       this.log.add(new winston.transports.File({
         format: logFormat,
-        filename: this.config.logs.combined
+        filename: this.config.logs.combined,
       }));
     }
     if (this.config.logs.error) {
       this.log.add(new winston.transports.File({
         format: logFormat,
         filename: this.config.logs.error,
-        level: 'error'
+        level: 'error',
       }));
     }
 
@@ -138,7 +138,7 @@ class Indexer {
 
       return this.converter({
         file,
-        slot
+        slot,
       }, (error) => {
         this.slots[slot.index] = false;
         if (slot.spinner && slot.spinner.stop) {
@@ -172,7 +172,7 @@ class Indexer {
       left: style('[', 'fg: grey; style: bold'),
       right: style(']', 'fg: grey; style: bold'),
       files: 0,
-      processed: 0
+      processed: 0,
     };
   }
 
@@ -211,7 +211,7 @@ class Indexer {
   }
 
   model ({
-    id, occurrence, output, converted, thumbnail, preview, info, sound
+    id, occurrence, output, converted, thumbnail, preview, info, sound,
   }) {
     let duration;
     let aspect;
@@ -262,8 +262,8 @@ class Indexer {
         favorited: false,
         reviewed: false,
         private: false,
-        tags: [ ]
-      }
+        tags: [ ],
+      },
     };
 
     return model;
@@ -387,7 +387,7 @@ class Indexer {
   }
 
   converter ({
-    file, slot
+    file, slot,
   }, callback) {
     return this.skipFile(file, (error, skip) => {
       if (error) {
@@ -412,7 +412,7 @@ class Indexer {
         spinner: 'dots4',
         style: 'fg: DodgerBlue1',
         x: 0,
-        y: slot.y
+        y: slot.y,
       });
       slot.spinner.start();
 
@@ -433,7 +433,7 @@ class Indexer {
           file,
           path: file.replace(/\/([^/]+)$/, '/'),
           name,
-          extension
+          extension,
         };
 
         return this.lookup(hash, (error, item) => {
@@ -529,7 +529,7 @@ class Indexer {
                 complete: style('━', 'fg: Green4'),
                 head: style('▶', 'fg: Green4'),
                 clear: true,
-                tokens: this.tokens
+                tokens: this.tokens,
               });
 
               const convert = spawn(this.config.ffmpeg, convertArgs,
@@ -564,7 +564,7 @@ class Indexer {
                   spinner: 'dots4',
                   style: 'fg: DodgerBlue1',
                   x: 0,
-                  y: slot.y
+                  y: slot.y,
                 });
                 slot.spinner.start();
 
@@ -611,7 +611,7 @@ class Indexer {
                           thumbnail,
                           preview,
                           info,
-                          sound
+                          sound,
                         });
 
                         return this.tag(model, (error) => {
@@ -668,7 +668,7 @@ class Indexer {
       spinnerStyle: 'fg: DodgerBlue1',
       clear: true,
       tokens: this.tokens,
-      formatOptions: { numeral: true }
+      formatOptions: { numeral: true },
     });
 
     this.scanner = new Scanner(this.config);
@@ -696,7 +696,7 @@ class Indexer {
 
     this.client = new MongoClient(this.config.db, {
       useNewUrlParser: true,
-      useUnifiedTopology: true
+      useUnifiedTopology: true,
     });
 
     this.log.info(`connecting to ${ this.config.db }...`);
