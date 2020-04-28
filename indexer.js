@@ -63,9 +63,10 @@ const defaults = {
   shasum: '/usr/bin/md5sum',
   ffmpeg: '/usr/bin/ffmpeg',
   convert: '-i $input -f $format -vcodec libx264 -preset fast' +
-    ' -profile:v main -acodec aac $output -hide_banner -y',
+    ' -profile:v main -pix_fmt yuv420p -acodec aac $output -hide_banner -y',
   convertSubtitles: '-i $input -f $format -vcodec libx264 -preset fast' +
-    ' -profile:v main -acodec aac -vf subtitles=$input $output -hide_banner -y',
+    ' -profile:v main -pix_fmt yuv420p -acodec aac -filter_complex' +
+    ' subtitles=\'$input\' $output -hide_banner -y',
   format: 'mp4',
   thumbnailFormat: 'png',
   thumbnail: '-i $output -ss 00:00:05.000 -vframes 1 $thumbnail -y',
