@@ -3,7 +3,7 @@
 const fs = require('fs');
 const async = require('async');
 const { join } = require('path');
-const { EventBus } = require('@mdbarr/events');
+const { EventBus } = require('@metastack/events');
 
 class Scanner extends EventBus {
   constructor ({

@@ -1,5 +1,5 @@
 {
-  "name": "@mdbarr/indexer",
+  "name": "@metastack/indexer",
   "version": "0.4.3",
   "description": "Media indexer, converter and tagger",
   "main": "indexer.js",
@@ -9,7 +9,7 @@
   "license": "MIT",
   "private": false,
   "dependencies": {
-    "@mdbarr/events": "^0.1.6",
+    "@metastack/events": "^0.2.0",
     "async": "^3.2.0",
     "barrkeep": "^2.6.1",
     "mongodb": "^3.5.6",
