@@ -11,12 +11,8 @@ const Scanner = require('./scanner');
 const utils = require('barrkeep/utils');
 const style = require('barrkeep/style');
 const MongoClient = require('mongodb').MongoClient;
-const {
-  ProgressBar, Spinner,
-} = require('barrkeep/progress');
-const {
-  execFile, spawn,
-} = require('child_process');
+const { ProgressBar, Spinner } = require('barrkeep/progress');
+const { execFile, spawn } = require('child_process');
 
 const version = require('./package.json').version;
 
@@ -48,9 +44,7 @@ function hasSubtitles (details) {
 
 const logFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-  winston.format.printf(info => {
-    return `[${ info.timestamp }] ${ info.level }: ${ info.message }`;
-  }));
+  winston.format.printf(info => `[${ info.timestamp }] ${ info.level }: ${ info.message }`));
 
 //////////
 
@@ -191,9 +185,7 @@ class Indexer {
             model.metadata.updated = Date.now();
             return callback(null, model);
           }).
-          catch((error) => {
-            return callback(error);
-          });
+          catch((error) => callback(error));
       }
 
       model.metadata.updated = Date.now();
@@ -298,9 +290,7 @@ class Indexer {
       const probeArgs = this.config.probe.
         trim().
         split(/\s+/).
-        map((arg) => {
-          return arg.replace('$file', file);
-        });
+        map((arg) => arg.replace('$file', file));
 
       return execFile(this.config.ffprobe, probeArgs, (error, info) => {
         if (error) {
@@ -339,11 +329,9 @@ class Indexer {
     const previewArgs = this.config.preview.
       trim().
       split(/\s+/).
-      map((arg) => {
-        return arg.replace('$input', input).
-          replace('$output', output).
-          replace('$interval', this.config.previewInterval);
-      });
+      map((arg) => arg.replace('$input', input).
+        replace('$output', output).
+        replace('$interval', this.config.previewInterval));
 
     this.log.info(`generating preview video for ${ input }`);
 
@@ -360,18 +348,14 @@ class Indexer {
 
   hasSound (file, callback) {
     if (!this.config.checkSound) {
-      return setImmediate(() => {
-        return callback(null, null);
-      });
+      return setImmediate(() => callback(null, null));
     }
 
     this.log.info(`checking for sound in ${ file }`);
     const soundArgs = this.config.sound.
       trim().
       split(/\s+/).
-      map((arg) => {
-        return arg.replace('$file', file);
-      });
+      map((arg) => arg.replace('$file', file));
 
     return execFile(this.config.ffmpeg, soundArgs, (error, stdout, soundInfo) => {
       if (error) {
@@ -386,9 +370,7 @@ class Indexer {
     });
   }
 
-  converter ({
-    file, slot,
-  }, callback) {
+  converter ({ file, slot }, callback) {
     return this.skipFile(file, (error, skip) => {
       if (error) {
         return callback(error);
@@ -512,11 +494,9 @@ class Indexer {
               const convertArgs = convertCommand.
                 trim().
                 split(/\s+/).
-                map((arg) => {
-                  return arg.replace('$input', file).
-                    replace('$output', output).
-                    replace('$format', this.config.format);
-                });
+                map((arg) => arg.replace('$input', file).
+                  replace('$output', output).
+                  replace('$format', this.config.format));
 
               this.log.info(`converting ${ name }.${ extension } in slot ${ slot.index }`);
 
@@ -572,10 +552,8 @@ class Indexer {
                 const thumbnailArgs = this.config.thumbnail.
                   trim().
                   split(/\s+/).
-                  map((arg) => {
-                    return arg.replace('$output', output).
-                      replace('$thumbnail', thumbnail);
-                  });
+                  map((arg) => arg.replace('$output', output).
+                    replace('$thumbnail', thumbnail));
 
                 this.log.info(`generating thumbnail ${ thumbnail }`);
 

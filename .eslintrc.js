@@ -1,18 +1,17 @@
 module.exports = {
+  root: true,
   'parser': 'espree',
   'parserOptions': {
     'ecmaVersion': 9,
     'sourceType': 'script'
   },
-  env: {
-    es6: true,
-    node: true,
-  },
+  env: { node: true, es6: true, jest: true },
   rules: {
     'accessor-pairs': 'error',
+    'array-bracket-newline': [ 'error', { multiline: true } ],
     'array-bracket-spacing': [ 'error', 'always' ],
     'array-callback-return': 'error',
-    'arrow-body-style': [ 'error', 'always' ],
+    'arrow-body-style': [ 'error', 'as-needed' ],
     'arrow-spacing': 'error',
     'block-spacing': [ 'error', 'always' ],
     'brace-style': [ 'error', '1tbs', { allowSingleLine: true } ],
@@ -118,7 +117,12 @@ module.exports = {
       location: 'anywhere',
     } ],
     'no-with': 'error',
-    'object-curly-newline': [ 'error', { minProperties: 2 } ],
+    'object-curly-newline': [ 'error',{
+      'ObjectExpression': { multiline: true, minProperties: 2 },
+      'ObjectPattern': { minProperties: 3 },
+      'ImportDeclaration': { minProperties: 3 },
+      'ExportDeclaration': { multiline: true, minProperties: 3 }
+    } ],
     'object-curly-spacing': [ 'error', 'always' ],
     'object-property-newline': 'error',
     'object-shorthand': 'error',
