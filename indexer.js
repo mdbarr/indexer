@@ -384,10 +384,7 @@ class Indexer {
       }
 
       const [ , name, extension ] = file.match(/([^/]+)\.([^.]+)$/);
-      const shortName = name.length > 25 ? `${ name.substring(0, 22) }…` : name;
-
       const prettyName = style(`${ name }.${ extension }`, 'style: bold');
-      const prettyShortName = style(`${ shortName }.${ extension }`, 'style: bold');
 
       slot.spinner = new Spinner({
         prepend: `  Fingerprinting ${ prettyName } `,
@@ -500,9 +497,29 @@ class Indexer {
 
               this.log.info(`converting ${ name }.${ extension } in slot ${ slot.index }`);
 
+              const nameWidth = 25;
+              let scrollStart = 0;
+
+              const scrollName = () => {
+                let shortName = `${ name }.${ extension }`;
+                if (shortName.length > 25) {
+                  shortName = shortName.substring(scrollStart, scrollStart + nameWidth).padEnd(25, ' ');
+                }
+                const prettyShortName = style(shortName, 'style: bold');
+                const scrollFormat = `  Converting ${ prettyShortName } $left$progress$right ` +
+                  '$percent ($eta remaining)';
+
+                if (/^\s+$/.test(shortName)) {
+                  scrollStart = 0;
+                } else {
+                  scrollStart++;
+                }
+
+                return scrollFormat;
+              };
+
               slot.progress = new ProgressBar({
-                format: `  Converting ${ prettyShortName } $left$progress$right ` +
-                '$percent ($eta remaining)',
+                format: scrollName(),
                 total: Infinity,
                 width: 40,
                 y: slot.y,
@@ -519,6 +536,8 @@ class Indexer {
               convert.stderr.on('data', (data) => {
                 data = data.toString();
                 log += data;
+
+                slot.progress.format = scrollName();
 
                 if (slot.progress.total === Infinity && durationRegExp.test(log)) {
                   const [ , duration ] = log.match(durationRegExp);
