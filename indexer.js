@@ -503,14 +503,20 @@ class Indexer {
               const scrollName = () => {
                 let shortName = `${ name }.${ extension }`;
                 if (shortName.length > 25) {
-                  shortName = shortName.substring(scrollStart, scrollStart + nameWidth).padEnd(25, ' ');
+                  shortName = shortName.substring(scrollStart, scrollStart + nameWidth);
+
+                  if (scrollStart < 0) {
+                    shortName = shortName.padStart(25, ' ');
+                  } else {
+                    shortName = shortName.padEnd(25, ' ');
+                  }
                 }
                 const prettyShortName = style(shortName, 'style: bold');
                 const scrollFormat = `  Converting ${ prettyShortName } $left$progress$right ` +
                   '$percent ($eta remaining)';
 
                 if (/^\s+$/.test(shortName)) {
-                  scrollStart = 0;
+                  scrollStart = nameWidth * -1 + 1;
                 } else {
                   scrollStart++;
                 }
