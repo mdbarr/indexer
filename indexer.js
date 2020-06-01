@@ -535,6 +535,14 @@ class Indexer {
                 tokens: this.tokens,
               });
 
+              let slow = 0;
+              slot.progress.onTick = () => {
+                if (slow % 2 === 0) {
+                  slot.progress.format = scrollName();
+                }
+                slow++;
+              };
+
               const convert = spawn(this.config.ffmpeg, convertArgs,
                 { stdio: [ 'ignore', 'ignore', 'pipe' ] });
 
@@ -542,8 +550,6 @@ class Indexer {
               convert.stderr.on('data', (data) => {
                 data = data.toString();
                 log += data;
-
-                slot.progress.format = scrollName();
 
                 if (slot.progress.total === Infinity && durationRegExp.test(log)) {
                   const [ , duration ] = log.match(durationRegExp);
