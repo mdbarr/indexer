@@ -147,7 +147,7 @@ class Indexer {
     }, this.config.concurrency);
 
     this.queue.error((error, task) => {
-      this.log.error(` x error in processing ${ task }`);
+      this.log.error(`error in processing ${ task }`);
       this.log.error(error);
 
       if (this.progress) {
@@ -561,8 +561,8 @@ class Indexer {
                 slot.progress.done();
 
                 if (code !== 0) {
-                  this.log.error(`failed to convert ${ name }.${ extension }`);
-                  return callback(new Error(`Failed to convert ${ name }.${ extension }`));
+                  this.log.error(`failed to convert ${ name }.${ extension } - exited ${ code }`);
+                  return callback(new Error(`Failed to convert ${ name }.${ extension } - exited ${ code }`));
                 }
 
                 this.log.info(`converted ${ name }.${ extension }!`);
