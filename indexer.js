@@ -383,7 +383,9 @@ class Indexer {
       }
 
       const [ , name, extension ] = file.match(/([^/]+)\.([^.]+)$/);
-      const prettyName = style(`${ name }.${ extension }`, 'style: bold');
+
+      const maxPrettyWidth = process.stderr.columns - 44;
+      const prettyName = style(`${ name.substring(0, maxPrettyWidth) }.${ extension }`, 'style: bold');
 
       slot.spinner = new Spinner({
         prepend: `  Fingerprinting ${ prettyName } `,
