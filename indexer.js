@@ -51,7 +51,7 @@ const logFormat = winston.format.combine(
 const defaults = {
   name: `Indexer v${ version }`,
   scan: process.cwd(),
-  pattern: /\.(asf|avi|flv|mkv|mov|mpg|mp4|mts|m4v|ts|vob|webm|wmv|3gp)$/i,
+  pattern: /\.(asf|avi|divx|flv|mkv|mov|mpe?g|mp4|mts|m[14]v|ts|vob|webm|wmv|3gp)$/i,
   db: 'mongodb://localhost:27017/indexer',
   concurrency: 2,
   shasum: '/usr/bin/md5sum',
