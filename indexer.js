@@ -6,7 +6,6 @@ const os = require('os');
 const async = require('async');
 const { join } = require('path');
 const winston = require('winston');
-const { v4: uuid } = require('uuid');
 const Scanner = require('./scanner');
 const utils = require('barrkeep/utils');
 const style = require('barrkeep/style');
@@ -472,10 +471,8 @@ class Indexer {
             occurrence.size = stat.size;
             occurrence.timestamp = new Date(stat.mtime).getTime();
 
-            const id = uuid();
-
-            const directory = join(this.config.save, id.substring(0, 2));
-            const filename = id.substring(2).replace(/-/g, '');
+            const directory = join(this.config.save, hash.substring(0, 2));
+            const filename = hash.substring(2);
 
             const output = join(directory, `${ filename }.${ this.config.format }`);
             const preview = join(directory, `${ filename }.${ this.config.previewFormat }`);
@@ -613,7 +610,7 @@ class Indexer {
                         }
 
                         const model = this.model({
-                          id,
+                          id: hash,
                           occurrence,
                           output,
                           converted,
@@ -628,14 +625,14 @@ class Indexer {
                             return callback(error);
                           }
 
-                          this.log.info(`inserting ${ name } [${ id }] into db`);
+                          this.log.info(`inserting ${ name } [${ hash }] into db`);
 
                           return this.media.insertOne(model, (error) => {
                             if (error) {
                               return callback(error);
                             }
 
-                            this.log.info(`inserted ${ name } [${ id }] into db`);
+                            this.log.info(`inserted ${ name } [${ hash }] into db`);
                             return this.delete(file, (error) => {
                               if (error) {
                                 return callback(error);
