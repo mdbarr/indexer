@@ -53,6 +53,8 @@ const defaults = {
   pattern: /\.(asf|avi|divx|flv|mkv|mov|mpe?g|mp4|mts|m[14]v|ts|vob|webm|wmv|3gp)$/i,
   db: 'mongodb://localhost:27017/indexer',
   concurrency: 2,
+  rescan: true,
+  rescanInterval: 3600000,
   shasum: '/usr/bin/md5sum',
   ffmpeg: '/usr/bin/ffmpeg',
   convert: '-i $input -f $format -vcodec libx264 -preset fast' +
@@ -690,6 +692,12 @@ class Indexer {
     });
 
     this.scanner.add(this.config.scan);
+
+    if (this.config.rescan && this.config.rescanInterval > 0) {
+      this.rescanner = setInterval(() => {
+        this.scanner.add(this.config.scan);
+      }, this.config.rescanInterval);
+    }
 
     return this.queue.drain(() => {
       console.log('\x1b[H\x1b[2J\x1b[?25hDone.');
