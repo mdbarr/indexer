@@ -7,7 +7,7 @@ const { EventBus } = require('@metastack/events');
 
 class Scanner extends EventBus {
   constructor ({
-    pattern = /\.(asf|avi|flv|mkv|mpg|mp4|m4v|wmv|3gp)$/,
+    pattern = /\.(asf|avi|divx|flv|mkv|mov|mpe?g|mp4|mts|m[14]v|ts|vob|webm|wmv|3gp)$/i,
     concurrency = 1, recursive = true, dotfiles = false,
   } = {}) {
     super();
