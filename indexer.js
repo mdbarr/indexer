@@ -681,21 +681,29 @@ class Indexer {
       formatOptions: { numeral: true },
     });
 
+    this.seen = new Set();
     this.scanner = new Scanner(this.config);
 
     this.scanner.on('file', (event) => {
-      if (event.data.index !== 1) {
-        this.progress.total++;
+      if (!this.seen.has(event.data.path)) {
+        this.seen.add(event.data.path);
+
+        if (event.data.index !== 1) {
+          this.progress.total++;
+        }
+        this.tokens.files++;
+        this.queue.push(event.data.path);
       }
-      this.tokens.files++;
-      this.queue.push(event.data.path);
     });
 
     this.scanner.add(this.config.scan);
 
     if (this.config.persistent && this.config.rescan > 0) {
       this.rescanner = setInterval(() => {
-        this.scanner.add(this.config.scan);
+        if (this.scanner.done) {
+          this.scanner.clear();
+          this.scanner.add(this.config.scan);
+        }
       }, this.config.rescan);
     }
 

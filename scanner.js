@@ -17,8 +17,22 @@ class Scanner extends EventBus {
       files: 0,
     };
 
+    this._running = false;
+
+    this.clear = () => {
+      if (!this._running) {
+        this.seen.clear();
+        stats.directories = 0;
+        stats.files = 0;
+        return true;
+      }
+      return false;
+    };
+
     this.seen = new Set();
     this.queue = async.queue((directory, next) => {
+      this._running = true;
+
       if (this.seen.has(directory)) {
         return directory;
       }
@@ -60,6 +74,8 @@ class Scanner extends EventBus {
     }, concurrency);
 
     this.queue.drain(() => {
+      this._running = false;
+
       this.emit({
         type: 'done',
         data: stats,
@@ -73,6 +89,14 @@ class Scanner extends EventBus {
     } else {
       this.queue.push(directories);
     }
+  }
+
+  get done () {
+    return !this._running;
+  }
+
+  get running () {
+    return this._running;
   }
 }
 
