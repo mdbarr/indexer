@@ -57,11 +57,13 @@ const defaults = {
   persistent: false,
   shasum: '/usr/bin/md5sum',
   ffmpeg: '/usr/bin/ffmpeg',
-  convert: '-i $input -f $format -vcodec libx264 -preset fast' +
-    ' -profile:v main -pix_fmt yuv420p -acodec aac $output -hide_banner -y',
-  convertSubtitles: '-i $input -f $format -vcodec libx264 -preset fast' +
+  convert: '-i $input -f $format -vcodec libx264 -preset fast -vsync 2' +
+    ' -profile:v main -pix_fmt yuv420p -acodec aac -max_muxing_queue_size 9999' +
+    ' -analyzeduration 2147483647 -probesize 2147483647 $output -hide_banner -y',
+  convertSubtitles: '-i $input -f $format -vcodec libx264 -preset fast -vsync 2' +
     ' -profile:v main -pix_fmt yuv420p -acodec aac -filter_complex' +
-    ' subtitles=\'$input\' $output -hide_banner -y',
+    ' subtitles=\'$input\' -max_muxing_queue_size 9999 -analyzeduration 2147483647' +
+    ' -probesize 2147483647 $output -hide_banner -y',
   format: 'mp4',
   thumbnailFormat: 'png',
   thumbnail: '-i $output -ss 00:00:05.000 -vframes 1 $thumbnail -y',
