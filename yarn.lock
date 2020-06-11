@@ -125,10 +125,10 @@ balanced-match@^1.0.0:
   resolved "https://registry.yarnpkg.com/balanced-match/-/balanced-match-1.0.0.tgz#89b4d199ab2bee49de164ea02b89ce462d71b767"
   integrity sha1-ibTRmasr7kneFk6gK4nORi1xt2c=
 
-barrkeep@^2.6.1, barrkeep@^2.6.3:
-  version "2.6.3"
-  resolved "https://registry.yarnpkg.com/barrkeep/-/barrkeep-2.6.3.tgz#cecc73d9c1864cb2dcedf478154f06d351a8b12e"
-  integrity sha512-i06ZZpmsm7u/3kul9rbPEJoX53NxJgMkRoJZQ+Lo8X4d6VD4SAUuQCFo6VHu5HYfOy8hfqX1sZpEMZQOIJuHsg==
+barrkeep@^2.6.1, barrkeep@^2.6.4:
+  version "2.6.4"
+  resolved "https://registry.yarnpkg.com/barrkeep/-/barrkeep-2.6.4.tgz#0cf2ae971a28d219a16559626719b4f639f9af1e"
+  integrity sha512-cX8CqeM4qSKWuHYvzHibMHPxrTLVJKVhRsDzKLDvKBQYSoAi6hOsyMv0kHPi9iFn6ev43FIyhKttSxQX43/l4Q==
 
 bl@^2.2.0:
   version "2.2.0"
