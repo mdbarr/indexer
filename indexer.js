@@ -152,7 +152,6 @@ class Indexer {
 
     this.queue.error((error, task) => {
       this.log.error(`error in processing ${ task }`);
-      this.log.error(error);
 
       if (this.progress) {
         this.progress.total--;
