@@ -69,7 +69,7 @@ const defaults = {
   thumbnail: '-i $output -ss 00:00:05.000 -vframes 1 $thumbnail -y',
   sound: '-t 10 -i $file -af volumedetect -f null /dev/null',
   preview: "-i $input -vf select='lt(mod(t,$interval),1)',setpts=N/FRAME_RATE/TB" +
-    ' -an $output -y -hide_banner',
+    ' -an -max_muxing_queue_size 9999 $output -y -hide_banner',
   previewFormat: 'webm',
   previewInterval: 60,
   ffprobe: '/usr/bin/ffprobe',
