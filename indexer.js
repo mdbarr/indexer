@@ -119,6 +119,13 @@ class Indexer {
       }));
     }
 
+    this.stats = {
+      converted: 0,
+      failed: 0,
+      duplicates: 0,
+      skipped: 0,
+    };
+
     this.slots = new Array(this.config.concurrency);
 
     this.queue = async.queue((file, callback) => {
@@ -156,6 +163,8 @@ class Indexer {
         this.log.error(error.toString());
       }
 
+      this.stats.failed++;
+
       if (this.progress) {
         this.progress.total--;
         this.tokens.processed++;
@@ -164,6 +173,7 @@ class Indexer {
 
     process.on('SIGINT', () => {
       console.log('\x1b[H\x1b[2J\x1b[?25hCanceled.');
+      this.printStats();
       process.exit(0);
     });
 
@@ -383,6 +393,7 @@ class Indexer {
 
       if (skip) {
         this.log.info(`skipping file due to existing entry ${ file }`);
+        this.stats.skipped++;
         this.progress.total--;
         this.tokens.processed++;
         return callback(null);
@@ -429,6 +440,7 @@ class Indexer {
 
           if (item) {
             this.log.info(`match for ${ hash } found`);
+            this.stats.duplicates++;
 
             this.log.info(`updating metadata for ${ name }/${ hash }`);
 
@@ -570,6 +582,7 @@ class Indexer {
 
                 if (code !== 0) {
                   this.log.error(`failed to convert ${ name }.${ extension } - exited ${ code }`);
+                  this.log.error(log);
                   return callback(new Error(`Failed to convert ${ name }.${ extension } - exited ${ code }`));
                 }
 
@@ -646,6 +659,8 @@ class Indexer {
                                 return callback(error);
                               }
 
+                              this.stats.converted++;
+
                               slot.spinner.stop();
                               this.progress.value++;
                               this.tokens.processed++;
@@ -717,10 +732,20 @@ class Indexer {
           clearInterval(this.rescanner);
         }
         console.log('\x1b[H\x1b[2J\x1b[?25hDone.');
+        this.printStats();
         return callback();
       }
       return false;
     });
+  }
+
+  printStats () {
+    console.log('  Converted:', utils.formatNumber(this.stats.converted));
+    console.log('  Failed:', utils.formatNumber(this.stats.failed));
+    console.log('  Duplicates:', utils.formatNumber(this.stats.duplicates));
+    if (this.config.canSkip && !this.config.delete) {
+      console.log('  Skipped:', utils.formatNumber(this.stats.skipped));
+    }
   }
 
   start (callback) {
