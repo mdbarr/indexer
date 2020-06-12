@@ -71,6 +71,7 @@ const defaults = {
   preview: '-i $input -an -max_muxing_queue_size 9999 -vcodec libx264 -pix_fmt yuv420p -profile:v' +
     " baseline -level 3 -vf select='lt(mod(t,$interval),1)'," +
     'setpts=N/FRAME_RATE/TB,pad=ceil(iw/2)*2:ceil(ih/2)*2 $output -y -hide_banner',
+  previewDuration: 30,
   ffprobe: '/usr/bin/ffprobe',
   probe: '-v quiet -print_format json -show_format -show_streams -print_format json $file',
   save: join(os.tmpdir(), 'indexer'),
@@ -339,13 +340,15 @@ class Indexer {
     return setImmediate(callback);
   }
 
-  preview (input, output, callback) {
+  preview (input, output, duration, callback) {
+    const interval = Math.ceil(duration / this.config.previewDuration);
+
     const previewArgs = this.config.preview.
       trim().
       split(/\s+/).
       map((arg) => arg.replace('$input', input).
         replace('$output', output).
-        replace('$interval', '60'));
+        replace('$interval', interval));
 
     this.log.info(`generating preview video for ${ input }`);
 
@@ -624,7 +627,7 @@ class Indexer {
                         return callback(error);
                       }
 
-                      return this.preview(output, preview, (error) => {
+                      return this.preview(output, preview, info.format.duration, (error) => {
                         if (error) {
                           return callback(error);
                         }
