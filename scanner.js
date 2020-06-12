@@ -8,7 +8,7 @@ const { EventBus } = require('@metastack/events');
 class Scanner extends EventBus {
   constructor ({
     pattern = /\.(asf|avi|divx|flv|mkv|mov|mpe?g|mp4|mts|m[14]v|ts|vob|webm|wmv|3gp)$/i,
-    concurrency = 1, recursive = true, dotfiles = false,
+    concurrency = 1, recursive = true, dotfiles = false, sort = false,
   } = {}) {
     super();
 
@@ -44,6 +44,17 @@ class Scanner extends EventBus {
 
         this.seen.add(directory);
         stats.directories++;
+
+        if (sort) {
+          entries.sort((a, b) => {
+            if (a.name < b.name) {
+              return -1;
+            } else if (a.name > b.name) {
+              return 1;
+            }
+            return 0;
+          });
+        }
 
         for (const entry of entries) {
           if (dotfiles === false && entry.name.startsWith('.')) {

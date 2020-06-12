@@ -51,6 +51,7 @@ const defaults = {
   name: `Indexer v${ version }`,
   scan: process.cwd(),
   pattern: /\.(asf|avi|divx|flv|mkv|mov|mpe?g|mp4|mts|m[14]v|ts|vob|webm|wmv|3gp)$/i,
+  sort: false,
   db: 'mongodb://localhost:27017/indexer',
   concurrency: 2,
   rescan: 3600000,
