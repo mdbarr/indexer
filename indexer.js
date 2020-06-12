@@ -152,6 +152,9 @@ class Indexer {
 
     this.queue.error((error, task) => {
       this.log.error(`error in processing ${ task }`);
+      if (error) {
+        this.log.error(error.toString());
+      }
 
       if (this.progress) {
         this.progress.total--;
@@ -294,9 +297,9 @@ class Indexer {
         split(/\s+/).
         map((arg) => arg.replace('$file', file));
 
-      return execFile(this.config.ffprobe, probeArgs, (error, info) => {
+      return execFile(this.config.ffprobe, probeArgs, (error, info, stderr) => {
         if (error) {
-          return callback(error);
+          return callback(stderr);
         }
 
         try {
@@ -337,9 +340,9 @@ class Indexer {
 
     this.log.info(`generating preview video for ${ input }`);
 
-    return execFile(this.config.ffmpeg, previewArgs, (error) => {
+    return execFile(this.config.ffmpeg, previewArgs, (error, stdout, stderr) => {
       if (error) {
-        return callback(error);
+        return callback(stderr);
       }
 
       this.log.info(`generated preview video ${ output }`);
@@ -361,7 +364,7 @@ class Indexer {
 
     return execFile(this.config.ffmpeg, soundArgs, (error, stdout, soundInfo) => {
       if (error) {
-        return callback(error);
+        return callback(soundInfo);
       }
 
       const sound = !soundInfo.includes('mean_volume: -91');
@@ -400,11 +403,11 @@ class Indexer {
       slot.spinner.start();
 
       this.log.info(`hashing ${ file }`);
-      return execFile(this.config.shasum, [ file ], (error, sha) => {
+      return execFile(this.config.shasum, [ file ], (error, sha, stderr) => {
         slot.spinner.stop();
 
         if (error) {
-          return callback(error);
+          return callback(stderr);
         }
 
         const [ hash ] = sha.trim().split(/\s+/);
@@ -590,9 +593,9 @@ class Indexer {
 
                 this.log.info(`generating thumbnail ${ thumbnail }`);
 
-                return execFile(this.config.ffmpeg, thumbnailArgs, (error) => {
+                return execFile(this.config.ffmpeg, thumbnailArgs, (error, stdout, thumbnailError) => {
                   if (error) {
-                    return callback(error);
+                    return callback(thumbnailError);
                   }
 
                   this.log.info(`generated thumbnail ${ thumbnail }`);
