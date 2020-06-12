@@ -64,7 +64,7 @@ const defaults = {
   convertSubtitles: '-i $input -f $format -vcodec libx264 -preset fast -vsync 2' +
     ' -profile:v main -pix_fmt yuv420p -acodec aac -filter_complex' +
     ' subtitles=\'$input\' -max_muxing_queue_size 9999 -analyzeduration 2147483647' +
-    ' -vf pad=ceil(iw/2)*2:ceil(ih/2)*2 -probesize 2147483647 $output -hide_banner -y',
+    ' -probesize 2147483647 $output -hide_banner -y',
   format: 'mp4',
   thumbnailFormat: 'png',
   thumbnail: '-i $output -ss 00:00:05.000 -vframes 1 $thumbnail -y',
