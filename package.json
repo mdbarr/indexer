@@ -12,7 +12,7 @@
     "@metastack/events": "^0.2.0",
     "async": "^3.2.0",
     "barrkeep": "^2.6.4",
-    "mongodb": "^3.5.8",
+    "mongodb": "^3.5.9",
     "winston": "^3.2.1",
     "yargs": "^15.3.1"
   },
