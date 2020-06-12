@@ -69,9 +69,8 @@ const defaults = {
   thumbnail: '-i $output -ss 00:00:05.000 -vframes 1 $thumbnail -y',
   sound: '-t 10 -i $file -af volumedetect -f null -max_muxing_queue_size 9999 /dev/null',
   preview: "-i $input -vf select='lt(mod(t,$interval),1)',setpts=N/FRAME_RATE/TB" +
-    ' -an -max_muxing_queue_size 9999 $output -y -hide_banner',
-  previewFormat: 'webm',
-  previewInterval: 60,
+    ' -an -max_muxing_queue_size 9999 -vcodec libx264 -pix_fmt yuv420p' +
+    ' -profile:v baseline -level 3 $output -y -hide_banner',
   ffprobe: '/usr/bin/ffprobe',
   probe: '-v quiet -print_format json -show_format -show_streams -print_format json $file',
   save: join(os.tmpdir(), 'indexer'),
@@ -333,7 +332,7 @@ class Indexer {
       split(/\s+/).
       map((arg) => arg.replace('$input', input).
         replace('$output', output).
-        replace('$interval', this.config.previewInterval));
+        replace('$interval', '60'));
 
     this.log.info(`generating preview video for ${ input }`);
 
@@ -480,7 +479,7 @@ class Indexer {
             const filename = hash.substring(2);
 
             const output = join(directory, `${ filename }.${ this.config.format }`);
-            const preview = join(directory, `${ filename }.${ this.config.previewFormat }`);
+            const preview = join(directory, `${ filename }p.${ this.config.format }`);
 
             return fs.mkdir(directory, { recursive: true }, (error) => {
               if (error) {
