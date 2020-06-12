@@ -296,8 +296,8 @@ class Indexer {
   examine (file, callback) {
     this.log.info(`examining ${ file }`);
     return fs.stat(file, (error, stat) => {
-      if (error) {
-        return callback(error);
+      if (error || !stat) {
+        return callback(error || new Error(`No file details for ${ file }`));
       }
 
       this.log.info(`probing detailed information for ${ file }`);
@@ -309,7 +309,7 @@ class Indexer {
 
       return execFile(this.config.ffprobe, probeArgs, (error, info, stderr) => {
         if (error) {
-          return callback(stderr);
+          return callback(stderr || error);
         }
 
         try {
@@ -352,7 +352,7 @@ class Indexer {
 
     return execFile(this.config.ffmpeg, previewArgs, (error, stdout, stderr) => {
       if (error) {
-        return callback(stderr);
+        return callback(stderr || error);
       }
 
       this.log.info(`generated preview video ${ output }`);
@@ -418,7 +418,7 @@ class Indexer {
         slot.spinner.stop();
 
         if (error) {
-          return callback(stderr);
+          return callback(stderr || error);
         }
 
         const [ hash ] = sha.trim().split(/\s+/);
@@ -484,8 +484,8 @@ class Indexer {
 
           this.log.info(`no match for ${ hash }`);
           return this.examine(file, (error, stat, details) => {
-            if (error) {
-              return callback(error);
+            if (error || !stat || !details) {
+              return callback(error || new Error(`Examine failed for ${ file }`));
             }
 
             occurrence.size = stat.size;
@@ -608,7 +608,7 @@ class Indexer {
 
                 return execFile(this.config.ffmpeg, thumbnailArgs, (error, stdout, thumbnailError) => {
                   if (error) {
-                    return callback(thumbnailError);
+                    return callback(thumbnailError || error);
                   }
 
                   this.log.info(`generated thumbnail ${ thumbnail }`);
