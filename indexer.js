@@ -403,17 +403,54 @@ class Indexer {
 
       const [ , name, extension ] = file.match(/([^/]+)\.([^.]+)$/);
 
-      const maxPrettyWidth = process.stderr.columns - 44;
-      const prettyName = style(`${ name.substring(0, maxPrettyWidth) }.${ extension }`, 'style: bold');
+      const nameWidth = 25;
+      let scrollStart = 0;
+      let slow = 0;
+
+      let scrollFormat;
+
+      const scrollName = (format) => {
+        if (format) {
+          scrollFormat = format;
+          scrollStart = 0;
+        }
+
+        let shortName = `${ name }.${ extension }`;
+        if (shortName.length > 25) {
+          shortName = shortName.substring(scrollStart, scrollStart + nameWidth);
+
+          if (scrollStart < 0) {
+            shortName = shortName.padStart(25, ' ');
+          } else {
+            shortName = shortName.padEnd(25, ' ');
+          }
+        }
+        const prettyShortName = style(shortName, 'style: bold');
+        const result = scrollFormat.replace('$name', prettyShortName);
+
+        if (/^\s+$/.test(shortName)) {
+          scrollStart = nameWidth * -1 + 1;
+        } else {
+          scrollStart++;
+        }
+
+        return result;
+      };
 
       slot.spinner = new Spinner({
-        prepend: `  Fingerprinting ${ prettyName } `,
+        prepend: scrollName('  Fingerprinting $name '),
         spinner: 'dots4',
         style: 'fg: DodgerBlue1',
         x: 0,
         y: slot.y,
       });
       slot.spinner.start();
+      slot.spinner.onTick = () => {
+        if (slow % 2 === 0) {
+          slot.spinner.prepend = scrollName();
+        }
+        slow++;
+      };
 
       this.log.info(`hashing ${ file }`);
       return execFile(this.config.shasum, [ file ], (error, sha, stderr) => {
@@ -516,35 +553,8 @@ class Indexer {
 
               this.log.info(`converting ${ name }.${ extension } in slot ${ slot.index }`);
 
-              const nameWidth = 25;
-              let scrollStart = 0;
-
-              const scrollName = () => {
-                let shortName = `${ name }.${ extension }`;
-                if (shortName.length > 25) {
-                  shortName = shortName.substring(scrollStart, scrollStart + nameWidth);
-
-                  if (scrollStart < 0) {
-                    shortName = shortName.padStart(25, ' ');
-                  } else {
-                    shortName = shortName.padEnd(25, ' ');
-                  }
-                }
-                const prettyShortName = style(shortName, 'style: bold');
-                const scrollFormat = `  Converting ${ prettyShortName } $left$progress$right ` +
-                  '$percent ($eta remaining)';
-
-                if (/^\s+$/.test(shortName)) {
-                  scrollStart = nameWidth * -1 + 1;
-                } else {
-                  scrollStart++;
-                }
-
-                return scrollFormat;
-              };
-
               slot.progress = new ProgressBar({
-                format: scrollName(),
+                format: scrollName('  Converting $name $left$progress$right $percent ($eta remaining)'),
                 total: Infinity,
                 width: 40,
                 y: slot.y,
@@ -554,7 +564,6 @@ class Indexer {
                 tokens: this.tokens,
               });
 
-              let slow = 0;
               slot.progress.onTick = () => {
                 if (slow % 2 === 0) {
                   slot.progress.format = scrollName();
@@ -591,13 +600,19 @@ class Indexer {
                 this.log.info(`converted ${ name }.${ extension }!`);
 
                 slot.spinner = new Spinner({
-                  prepend: `  Generating preview and metadata for ${ prettyName } `,
+                  prepend: scrollName('  Generating preview and metadata for $name '),
                   spinner: 'dots4',
                   style: 'fg: DodgerBlue1',
                   x: 0,
                   y: slot.y,
                 });
                 slot.spinner.start();
+                slot.spinner.onTick = () => {
+                  if (slow % 2 === 0) {
+                    slot.spinner.prepend = scrollName();
+                  }
+                  slow++;
+                };
 
                 const thumbnail = output.replace(this.config.format, this.config.thumbnailFormat);
                 const thumbnailArgs = this.config.thumbnail.
