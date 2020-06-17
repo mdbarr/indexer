@@ -226,7 +226,7 @@ class Indexer {
     let height;
 
     if (info.format && info.format.duration) {
-      duration = info.format.duration;
+      duration = Number(info.format.duration);
     }
 
     for (const stream of info.streams) {
