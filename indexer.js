@@ -799,12 +799,18 @@ class Indexer {
       this.db = this.client.db();
       this.media = this.db.collection('media');
 
-      return this.scan((error) => {
+      return this.media.createIndex({ id: 1 }, { unique: true }, (error) => {
         if (error) {
           return callback(error);
         }
 
-        return this.client.close(callback);
+        return this.scan((error) => {
+          if (error) {
+            return callback(error);
+          }
+
+          return this.client.close(callback);
+        });
       });
     });
   }
