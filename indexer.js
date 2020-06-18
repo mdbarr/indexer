@@ -133,7 +133,7 @@ class Indexer {
 
       for (let index = 0; index < this.slots.length; index++) {
         if (!this.slots[index]) {
-          this.slots[index] = true;
+          this.slots[index] = slot;
           slot.index = index;
           break;
         }
@@ -218,7 +218,7 @@ class Indexer {
   }
 
   model ({
-    id, occurrence, output, converted, thumbnail, preview, info, sound,
+    id, occurrence, occurrences, output, converted, thumbnail, preview, info, sound,
   }) {
     let duration;
     let aspect;
@@ -262,7 +262,7 @@ class Indexer {
         created: new Date(converted.mtime).getTime(),
         added: timestamp,
         updated: timestamp,
-        occurrences: [ occurrence ],
+        occurrences: occurrences || [ occurrence ],
         series: false,
         views: 0,
         stars: 0,
@@ -472,6 +472,20 @@ class Indexer {
           extension,
         };
 
+        for (let i = 0; i < this.slots.length; i++) {
+          if (this.slots[i] && this.slots[i].index !== slot.index && this.slots[i].id === hash) {
+            this.log.info(`slot ${ i } is already processing ${ hash }`);
+            this.slots[i].occurrences.push(occurrence);
+
+            this.progress.total--;
+            this.tokens.processed++;
+            return callback(null);
+          }
+        }
+
+        slot.id = hash;
+        slot.occurrences = [ occurrence ];
+
         return this.lookup(hash, (error, item) => {
           if (error) {
             return callback(error);
@@ -650,6 +664,7 @@ class Indexer {
                         const model = this.model({
                           id: hash,
                           occurrence,
+                          occurrences: slot.occurrences,
                           output,
                           converted,
                           thumbnail,
