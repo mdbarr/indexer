@@ -286,7 +286,7 @@ class Indexer {
         if (error) {
           return callback(error);
         }
-        this.log.info(`existing entry found for ${ file }`);
+
         return callback(null, Boolean(item));
       });
     }
