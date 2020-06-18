@@ -772,11 +772,11 @@ class Indexer {
   }
 
   printStats () {
-    console.log('  Converted:', utils.formatNumber(this.stats.converted));
-    console.log('  Failed:', utils.formatNumber(this.stats.failed));
-    console.log('  Duplicates:', utils.formatNumber(this.stats.duplicates));
+    console.log('  Converted:', utils.formatNumber(this.stats.converted, { numeral: true }));
+    console.log('  Failed:', utils.formatNumber(this.stats.failed, { numeral: true }));
+    console.log('  Duplicates:', utils.formatNumber(this.stats.duplicates, { numeral: true }));
     if (this.config.canSkip && !this.config.delete) {
-      console.log('  Skipped:', utils.formatNumber(this.stats.skipped));
+      console.log('  Skipped:', utils.formatNumber(this.stats.skipped, { numeral: true }));
     }
   }
 
