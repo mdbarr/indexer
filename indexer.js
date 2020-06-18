@@ -59,17 +59,17 @@ const defaults = {
   shasum: '/usr/bin/md5sum',
   ffmpeg: '/usr/bin/ffmpeg',
   convert: '-i $input -f $format -vcodec h264 -acodec aac -pix_fmt yuv420p -profile:v' +
-    ' baseline -level 3 -vsync 2 -max_muxing_queue_size 9999 -vf pad=ceil(iw/2)*2:ceil(ih/2)*2' +
+    ' baseline -level 3 -vsync 2 -max_muxing_queue_size 99999 -vf pad=ceil(iw/2)*2:ceil(ih/2)*2' +
     ' -analyzeduration 2147483647 -probesize 2147483647 $output -hide_banner -y',
   convertSubtitles: '-i $input -f $format -vcodec h264 -acodec aac -pix_fmt yuv420p -profile:v' +
-    " baseline -level 3 -vsync 2 -max_muxing_queue_size 9999 -filter_complex subtitles='$input'" +
+    " baseline -level 3 -vsync 2 -max_muxing_queue_size 99999 -filter_complex subtitles='$input'" +
     ' -analyzeduration 2147483647 -probesize 2147483647 $output -hide_banner -y',
   format: 'mp4',
   thumbnailFormat: 'png',
   thumbnail: '-i $output -ss 00:00:05.000 -vframes 1 $thumbnail -y',
-  sound: '-t 10 -i $file -af volumedetect -f null -max_muxing_queue_size 9999 /dev/null',
-  preview: '-i $input -an -max_muxing_queue_size 9999 -vcodec libx264 -pix_fmt yuv420p -profile:v' +
-    " baseline -level 3 -vf select='lt(mod(t,$interval),1)'," +
+  sound: '-t 10 -i $file -af volumedetect -f null -max_muxing_queue_size 99999 /dev/null',
+  preview: '-i $input -an -max_muxing_queue_size 99999 -vcodec libx264 -pix_fmt yuv420p' +
+    " -profile:v baseline -level 3 -vf select='lt(mod(t,$interval),1)'," +
     'setpts=N/FRAME_RATE/TB,pad=ceil(iw/2)*2:ceil(ih/2)*2 $output -y -hide_banner',
   previewDuration: 30,
   ffprobe: '/usr/bin/ffprobe',
