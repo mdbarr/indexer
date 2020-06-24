@@ -12,21 +12,9 @@ class Scanner extends EventBus {
   } = {}) {
     super();
 
-    const stats = {
+    this.stats = {
       directories: 0,
       files: 0,
-    };
-
-    this._running = false;
-
-    this.clear = () => {
-      if (!this._running) {
-        this.seen.clear();
-        stats.directories = 0;
-        stats.files = 0;
-        return true;
-      }
-      return false;
     };
 
     this.seen = new Set();
@@ -43,7 +31,7 @@ class Scanner extends EventBus {
         }
 
         this.seen.add(directory);
-        stats.directories++;
+        this.stats.directories++;
 
         if (sort) {
           entries.sort((a, b) => {
@@ -68,12 +56,12 @@ class Scanner extends EventBus {
           } else if (entry.isFile() && !this.seen.has(path) &&
                      pattern.test(entry.name)) {
             this.seen.has(path);
-            stats.files++;
+            this.stats.files++;
 
             this.emit({
               type: 'file',
               data: {
-                index: stats.files,
+                index: this.stats.files,
                 path,
               },
             });
@@ -83,15 +71,6 @@ class Scanner extends EventBus {
         return next();
       });
     }, concurrency);
-
-    this.queue.drain(() => {
-      this._running = false;
-
-      this.emit({
-        type: 'done',
-        data: stats,
-      });
-    });
   }
 
   add (directories) {
@@ -102,12 +81,18 @@ class Scanner extends EventBus {
     }
   }
 
-  get done () {
-    return !this._running;
+  clear () {
+    if (this.queue.idle()) {
+      this.seen.clear();
+      this.stats.directories = 0;
+      this.stats.files = 0;
+      return true;
+    }
+    return false;
   }
 
-  get running () {
-    return this._running;
+  idle () {
+    return this.queue.idle();
   }
 }
 
