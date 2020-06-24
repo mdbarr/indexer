@@ -669,12 +669,14 @@ class Indexer {
 
                     const thumbnail = output.replace(this.config.format, this.config.thumbnailFormat);
                     const time = Math.floor(Math.min(this.config.thumbnailTime, Number(details.format.duration)));
+                    const timeString = time.toFixed(3).padStart(6, '0');
+
                     const thumbnailArgs = this.config.thumbnail.
                       trim().
                       split(/\s+/).
                       map((arg) => arg.replace('$output', output).
                         replace('$thumbnail', thumbnail).
-                        replace('$time', time.toFixed(3).padStart(6, '0')));
+                        replace('$time', timeString));
 
                     this.log.info(`generating thumbnail ${ thumbnail }`);
 
@@ -683,7 +685,7 @@ class Indexer {
                         return callback(thumbnailError || error);
                       }
 
-                      this.log.info(`generated thumbnail ${ thumbnail }`);
+                      this.log.info(`generated thumbnail ${ thumbnail } at ${ timeString }s`);
 
                       return this.examine(output, (error, converted, info) => {
                         if (error) {
