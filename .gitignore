@@ -62,3 +62,6 @@ typings/
 
 # notes
 *.txt
+
+# conversion tests
+tests/

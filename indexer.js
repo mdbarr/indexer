@@ -644,14 +644,28 @@ class Indexer {
 
                   return this.lookup({ hash }, (error, duplicate) => {
                     if (error) {
+                      slot.spinner.stop();
                       return callback(error);
                     }
 
                     if (duplicate) {
-                      console.log(duplicate);
-                    } else {
-                      this.log.info(`no duplicates of ${ output } (${ hash }) found`);
+                      this.log.info(`match for converted ${ hash } found`);
+                      return this.duplicate(duplicate, occurrence, (error, updated) => {
+                        if (error) {
+                          slot.spinner.stop();
+                          return callback(error);
+                        }
+                        return fs.unlink(output, (error) => {
+                          slot.spinner.stop();
+                          if (error) {
+                            return callback(error);
+                          }
+                          // attempt to delete directory, ignore error if it fails
+                          return fs.rmdir(directory, () => callback(null, updated));
+                        });
+                      });
                     }
+                    this.log.info(`no duplicates of ${ output } (${ hash }) found`);
 
                     const thumbnail = output.replace(this.config.format, this.config.thumbnailFormat);
                     const time = Math.floor(Math.min(this.config.thumbnailTime, Number(details.format.duration)));
@@ -792,6 +806,9 @@ class Indexer {
       if (!this.config.persistent) {
         if (this.rescanner) {
           clearInterval(this.rescanner);
+        }
+        if (this.progress) {
+          this.progress.done();
         }
         console.log('\x1b[H\x1b[2J\x1b[?25hDone.');
         this.printStats();
