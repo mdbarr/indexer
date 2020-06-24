@@ -630,13 +630,13 @@ class Indexer {
                 };
 
                 const thumbnail = output.replace(this.config.format, this.config.thumbnailFormat);
-                const time = Math.floor(Math.min(this.config.thumbnailTime, Number(info.format.duration)));
+                const time = Math.floor(Math.min(this.config.thumbnailTime, Number(details.format.duration)));
                 const thumbnailArgs = this.config.thumbnail.
                   trim().
                   split(/\s+/).
                   map((arg) => arg.replace('$output', output).
                     replace('$thumbnail', thumbnail).
-                    replace('$time', time.toFixed(3).padStart(6, '0'));
+                    replace('$time', time.toFixed(3).padStart(6, '0')));
 
                 this.log.info(`generating thumbnail ${ thumbnail }`);
 
@@ -658,7 +658,7 @@ class Indexer {
                       if (error) {
                         return callback(error);
                       }
-                      ,
+
                       return this.preview(output, preview, info.format.duration, (error) => {
                         if (error) {
                           return callback(error);
@@ -754,7 +754,7 @@ class Indexer {
 
     if (this.config.persistent && this.config.rescan > 0) {
       this.rescanner = setInterval(() => {
-        if (this.scanner.done) {
+        if (this.scanner.idle()) {
           this.scanner.clear();
           this.scanner.add(this.config.scan);
         }
