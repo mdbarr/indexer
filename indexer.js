@@ -294,6 +294,48 @@ class Indexer {
     return setImmediate(callback, null, false);
   }
 
+  duplicate (model, occurrence, callback) {
+    this.log.info(`updating metadata for ${ model.id }`);
+    this.stats.duplicates++;
+
+    let found = false;
+    for (const item of model.metadata.occurrences) {
+      if (item.file === occurrence.file) {
+        found = true;
+        break;
+      }
+    }
+    if (found) {
+      this.log.info(`existing occurrence found for ${ occurrence.file }`);
+    } else {
+      model.metadata.occurrences.push(occurrence);
+    }
+
+    this.log.info(`updating tags for ${ occurrence.id }`);
+    return this.tag(model, (error, update) => {
+      if (error) {
+        return callback(error);
+      }
+
+      return this.media.replaceOne({ id: model.id }, update, (error) => {
+        if (error) {
+          return callback(error);
+        }
+
+        this.log.info(`metadata updated for ${ model.id }`);
+
+        return this.delete(occurrence.file, (error) => {
+          if (error) {
+            return callback(error);
+          }
+          this.progress.total--;
+          this.tokens.processed++;
+          return callback(null, update);
+        });
+      });
+    });
+  }
+
   examine (file, callback) {
     this.log.info(`examining ${ file }`);
     return fs.stat(file, (error, stat) => {
@@ -494,46 +536,7 @@ class Indexer {
 
           if (item) {
             this.log.info(`match for ${ id } found`);
-            this.stats.duplicates++;
-
-            this.log.info(`updating metadata for ${ name } (${ id })`);
-
-            let found = false;
-            for (const one of item.metadata.occurrences) {
-              if (one.file === occurrence.file) {
-                found = true;
-                break;
-              }
-            }
-            if (found) {
-              this.log.info(`existing occurrence found for ${ occurrence.file }`);
-            } else {
-              item.metadata.occurrences.push(occurrence);
-            }
-
-            this.log.info(`updating tags for ${ name }`);
-            return this.tag(item, (error, model) => {
-              if (error) {
-                return callback(error);
-              }
-
-              return this.media.updateOne({ id: item.id }, { $set: model }, (error) => {
-                if (error) {
-                  return callback(error);
-                }
-
-                this.log.info(`metadata updated for ${ name }`);
-
-                return this.delete(file, (error) => {
-                  if (error) {
-                    return callback(error);
-                  }
-                  this.progress.total--;
-                  this.tokens.processed++;
-                  return callback(null, item);
-                });
-              });
-            });
+            return this.duplicate(item, occurrence, callback);
           }
 
           this.log.info(`no match for ${ id }`);
