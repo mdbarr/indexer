@@ -461,12 +461,12 @@ class Indexer {
           return callback(stderr || error);
         }
 
-        const [ hash ] = sha.trim().split(/\s+/);
+        const [ id ] = sha.trim().split(/\s+/);
 
-        this.log.info(`hashed ${ file }: ${ hash }`);
+        this.log.info(`hashed ${ file }: ${ id }`);
 
         const occurrence = {
-          hash,
+          id,
           file,
           path: file.replace(/\/([^/]+)$/, '/'),
           name,
@@ -474,8 +474,8 @@ class Indexer {
         };
 
         for (let i = 0; i < this.slots.length; i++) {
-          if (this.slots[i] && this.slots[i].index !== slot.index && this.slots[i].id === hash) {
-            this.log.info(`slot ${ i } is already processing ${ hash }`);
+          if (this.slots[i] && this.slots[i].index !== slot.index && this.slots[i].id === id) {
+            this.log.info(`slot ${ i } is already processing ${ id }`);
             this.slots[i].occurrences.push(occurrence);
 
             this.progress.total--;
@@ -484,19 +484,19 @@ class Indexer {
           }
         }
 
-        slot.id = hash;
+        slot.id = id;
         slot.occurrences = [ occurrence ];
 
-        return this.lookup({ id: hash }, (error, item) => {
+        return this.lookup({ id }, (error, item) => {
           if (error) {
             return callback(error);
           }
 
           if (item) {
-            this.log.info(`match for ${ hash } found`);
+            this.log.info(`match for ${ id } found`);
             this.stats.duplicates++;
 
-            this.log.info(`updating metadata for ${ name }/${ hash }`);
+            this.log.info(`updating metadata for ${ name } (${ id })`);
 
             let found = false;
             for (const one of item.metadata.occurrences) {
@@ -536,7 +536,7 @@ class Indexer {
             });
           }
 
-          this.log.info(`no match for ${ hash }`);
+          this.log.info(`no match for ${ id }`);
           return this.examine(file, (error, stat, details) => {
             if (error || !stat || !details) {
               return callback(error || new Error(`Examine failed for ${ file }`));
@@ -545,8 +545,8 @@ class Indexer {
             occurrence.size = stat.size;
             occurrence.timestamp = new Date(stat.mtime).getTime();
 
-            const directory = join(this.config.save, hash.substring(0, 2));
-            const filename = hash.substring(2);
+            const directory = join(this.config.save, id.substring(0, 2));
+            const filename = id.substring(2);
 
             const output = join(directory, `${ filename }.${ this.config.format }`);
             const preview = join(directory, `${ filename }p.${ this.config.format }`);
@@ -629,21 +629,25 @@ class Indexer {
                   slow++;
                 };
 
-                this.log.info(`hashing ${ output }`);
+                this.log.info(`checking for duplicate of ${ output }`);
                 return execFile(this.config.shasum, [ output ], (error, outputSha) => {
                   if (error) {
                     return callback(error);
                   }
 
-                  const [ ohash ] = outputSha.trim().split(/\s+/);
+                  const [ hash ] = outputSha.trim().split(/\s+/);
 
-                  return this.lookup({ hash: ohash }, (error, duplicate) => {
+                  this.log.info(`${ output } has id ${ hash }`);
+
+                  return this.lookup({ hash }, (error, duplicate) => {
                     if (error) {
                       return callback(error);
                     }
 
                     if (duplicate) {
                       console.log(duplicate);
+                    } else {
+                      this.log.info(`no duplicates of ${ output } (${ hash }) found`);
                     }
 
                     const thumbnail = output.replace(this.config.format, this.config.thumbnailFormat);
@@ -682,8 +686,8 @@ class Indexer {
                             }
 
                             const model = this.model({
-                              id: hash,
-                              hash: ohash,
+                              id,
+                              hash,
                               occurrence,
                               occurrences: slot.occurrences,
                               output,
@@ -699,14 +703,14 @@ class Indexer {
                                 return callback(error);
                               }
 
-                              this.log.info(`inserting ${ name } [${ hash }] into db`);
+                              this.log.info(`inserting ${ name } (${ id }) into db`);
 
                               return this.media.insertOne(model, (error) => {
                                 if (error) {
                                   return callback(error);
                                 }
 
-                                this.log.info(`inserted ${ name } [${ hash }] into db`);
+                                this.log.info(`inserted ${ name } (${ id }) into db`);
                                 return this.delete(file, (error) => {
                                   if (error) {
                                     return callback(error);
