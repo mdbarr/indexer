@@ -219,7 +219,7 @@ class Indexer {
   }
 
   model ({
-    id, occurrence, occurrences, output, converted, thumbnail, preview, info, sound,
+    id, hash, occurrence, occurrences, output, converted, thumbnail, preview, info, sound,
   }) {
     let duration;
     let aspect;
@@ -249,7 +249,7 @@ class Indexer {
       object: 'video',
       version,
       name: occurrence.name,
-      hash: occurrence.hash,
+      hash,
       relative: output.replace(this.config.save, '').replace(/^\//, ''),
       thumbnail: thumbnail.replace(this.config.save, '').replace(/^\//, ''),
       preview: preview.replace(this.config.save, '').replace(/^\//, ''),
@@ -277,8 +277,8 @@ class Indexer {
     return model;
   }
 
-  lookup (hash, callback) {
-    return this.media.findOne({ hash }, callback);
+  lookup (query, callback) {
+    return this.media.findOne(query, callback);
   }
 
   skipFile (file, callback) {
@@ -487,7 +487,7 @@ class Indexer {
         slot.id = hash;
         slot.occurrences = [ occurrence ];
 
-        return this.lookup(hash, (error, item) => {
+        return this.lookup({ id: hash }, (error, item) => {
           if (error) {
             return callback(error);
           }
@@ -629,77 +629,97 @@ class Indexer {
                   slow++;
                 };
 
-                const thumbnail = output.replace(this.config.format, this.config.thumbnailFormat);
-                const time = Math.floor(Math.min(this.config.thumbnailTime, Number(details.format.duration)));
-                const thumbnailArgs = this.config.thumbnail.
-                  trim().
-                  split(/\s+/).
-                  map((arg) => arg.replace('$output', output).
-                    replace('$thumbnail', thumbnail).
-                    replace('$time', time.toFixed(3).padStart(6, '0')));
-
-                this.log.info(`generating thumbnail ${ thumbnail }`);
-
-                return execFile(this.config.ffmpeg, thumbnailArgs, (error, stdout, thumbnailError) => {
+                this.log.info(`hashing ${ output }`);
+                return execFile(this.config.shasum, [ output ], (error, outputSha) => {
                   if (error) {
-                    return callback(thumbnailError || error);
+                    return callback(error);
                   }
 
-                  this.log.info(`generated thumbnail ${ thumbnail }`);
+                  const [ ohash ] = outputSha.trim().split(/\s+/);
 
-                  return this.examine(output, (error, converted, info) => {
+                  return this.lookup({ hash: ohash }, (error, duplicate) => {
                     if (error) {
                       return callback(error);
                     }
 
-                    this.log.info(`obtained info for ${ output }`);
+                    if (duplicate) {
+                      console.log(duplicate);
+                    }
 
-                    return this.hasSound(output, (error, sound) => {
+                    const thumbnail = output.replace(this.config.format, this.config.thumbnailFormat);
+                    const time = Math.floor(Math.min(this.config.thumbnailTime, Number(details.format.duration)));
+                    const thumbnailArgs = this.config.thumbnail.
+                      trim().
+                      split(/\s+/).
+                      map((arg) => arg.replace('$output', output).
+                        replace('$thumbnail', thumbnail).
+                        replace('$time', time.toFixed(3).padStart(6, '0')));
+
+                    this.log.info(`generating thumbnail ${ thumbnail }`);
+
+                    return execFile(this.config.ffmpeg, thumbnailArgs, (error, stdout, thumbnailError) => {
                       if (error) {
-                        return callback(error);
+                        return callback(thumbnailError || error);
                       }
 
-                      return this.preview(output, preview, info.format.duration, (error) => {
+                      this.log.info(`generated thumbnail ${ thumbnail }`);
+
+                      return this.examine(output, (error, converted, info) => {
                         if (error) {
                           return callback(error);
                         }
 
-                        const model = this.model({
-                          id: hash,
-                          occurrence,
-                          occurrences: slot.occurrences,
-                          output,
-                          converted,
-                          thumbnail,
-                          preview,
-                          info,
-                          sound,
-                        });
+                        this.log.info(`obtained info for ${ output }`);
 
-                        return this.tag(model, (error) => {
+                        return this.hasSound(output, (error, sound) => {
                           if (error) {
                             return callback(error);
                           }
 
-                          this.log.info(`inserting ${ name } [${ hash }] into db`);
-
-                          return this.media.insertOne(model, (error) => {
+                          return this.preview(output, preview, info.format.duration, (error) => {
                             if (error) {
                               return callback(error);
                             }
 
-                            this.log.info(`inserted ${ name } [${ hash }] into db`);
-                            return this.delete(file, (error) => {
+                            const model = this.model({
+                              id: hash,
+                              hash: ohash,
+                              occurrence,
+                              occurrences: slot.occurrences,
+                              output,
+                              converted,
+                              thumbnail,
+                              preview,
+                              info,
+                              sound,
+                            });
+
+                            return this.tag(model, (error) => {
                               if (error) {
                                 return callback(error);
                               }
 
-                              this.stats.converted++;
+                              this.log.info(`inserting ${ name } [${ hash }] into db`);
 
-                              slot.spinner.stop();
-                              this.progress.value++;
-                              this.tokens.processed++;
-                              return callback(null, model);
+                              return this.media.insertOne(model, (error) => {
+                                if (error) {
+                                  return callback(error);
+                                }
+
+                                this.log.info(`inserted ${ name } [${ hash }] into db`);
+                                return this.delete(file, (error) => {
+                                  if (error) {
+                                    return callback(error);
+                                  }
+
+                                  this.stats.converted++;
+
+                                  slot.spinner.stop();
+                                  this.progress.value++;
+                                  this.tokens.processed++;
+                                  return callback(null, model);
+                                });
+                              });
                             });
                           });
                         });
