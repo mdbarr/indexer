@@ -127,6 +127,8 @@ class Indexer {
       skipped: 0,
     };
 
+    this.progressMax = Math.min(60, process.stdout.columns - 80);
+
     this.slots = new Array(this.config.concurrency);
 
     this.queue = async.queue((file, callback) => {
@@ -575,7 +577,7 @@ class Indexer {
               slot.progress = new ProgressBar({
                 format: scrollName('  Converting $name $left$progress$right $percent ($eta remaining)'),
                 total: Infinity,
-                width: 40,
+                width: this.progressMax,
                 y: slot.y,
                 complete: style('━', 'fg: Green4'),
                 head: style('▶', 'fg: Green4'),
@@ -768,7 +770,7 @@ class Indexer {
       format: ' Processed $processed/$files files $left$progress$right ' +
         '$percent ($eta remaining) $spinner',
       total: 1,
-      width: 40,
+      width: this.progressMax,
       y: 3,
       complete: style('◼', 'fg: Green4'),
       head: false,
