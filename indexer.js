@@ -800,10 +800,8 @@ class Indexer {
 
     if (this.config.persistent && this.config.rescan > 0) {
       this.rescanner = setInterval(() => {
-        if (this.scanner.idle()) {
-          this.scanner.clear();
-          this.scanner.add(this.config.scan);
-        }
+        this.scanner.clear();
+        this.scanner.add(this.config.scan);
       }, this.config.rescan);
     }
 

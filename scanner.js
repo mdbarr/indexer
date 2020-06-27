@@ -19,8 +19,6 @@ class Scanner extends EventBus {
 
     this.seen = new Set();
     this.queue = async.queue((directory, next) => {
-      this._running = true;
-
       if (this.seen.has(directory)) {
         return directory;
       }
@@ -82,13 +80,11 @@ class Scanner extends EventBus {
   }
 
   clear () {
-    if (this.queue.idle()) {
-      this.seen.clear();
-      this.stats.directories = 0;
-      this.stats.files = 0;
-      return true;
-    }
-    return false;
+    this.queue.remove(() => true);
+    this.seen.clear();
+    this.stats.directories = 0;
+    this.stats.files = 0;
+    return true;
   }
 
   idle () {
