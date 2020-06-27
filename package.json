@@ -1,6 +1,6 @@
 {
   "name": "@metastack/indexer",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Media indexer, converter and tagger",
   "main": "indexer.js",
   "bin": "cli.js",
