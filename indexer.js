@@ -669,7 +669,7 @@ class Indexer {
                     this.log.info(`no duplicates of ${ output } (${ hash }) found`);
 
                     const thumbnail = output.replace(this.config.format, this.config.thumbnailFormat);
-                    const time = Math.floor(Math.min(this.config.thumbnailTime, Number(details.format.duration)));
+                    const time = Math.floor(Math.min(this.config.thumbnailTime, Number(details.format.duration) - 1));
                     const timeString = time.toFixed(3).padStart(6, '0');
 
                     const thumbnailArgs = this.config.thumbnail.
