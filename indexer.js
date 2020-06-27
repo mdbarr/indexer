@@ -849,7 +849,17 @@ class Indexer {
       this.db = this.client.db();
       this.media = this.db.collection('media');
 
-      return this.media.createIndex({ id: 1 }, { unique: true }, (error) => {
+      return this.media.createIndexes([
+        {
+          key: { id: 1 },
+          unique: true,
+        }, {
+          key: {
+            name: 'text',
+            description: 'text',
+          },
+        },
+      ], (error) => {
         if (error) {
           return callback(error);
         }
