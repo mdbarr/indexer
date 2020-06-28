@@ -20,7 +20,7 @@ class Scanner extends EventBus {
     this.seen = new Set();
     this.queue = async.queue((directory, next) => {
       if (this.seen.has(directory)) {
-        return directory;
+        return next();
       }
 
       return fs.readdir(directory, { withFileTypes: true }, (error, entries) => {
