@@ -8,9 +8,8 @@ const { EventBus } = require('@metastack/events');
 
 class Scanner extends EventBus {
   constructor ({
-    files = /\.(asf|avi|divx|flv|mkv|mov|mpe?g|mp4|mts|m[14]v|ts|vob|webm|wmv|3gp)$/i,
-    exclude, concurrency = 1, recursive = true, dotfiles = false, sort = false,
-    maxDepth = 25, followSymlinks = true,
+    files, exclude, concurrency = 1, recursive = true, dotfiles = false,
+    sort = false, maxDepth = 25, followSymlinks = true,
   } = {}, log) {
     super();
 
@@ -57,56 +56,64 @@ class Scanner extends EventBus {
         }
 
         return async.each(entries, (entry, next) => {
-          const relative = join(directory, entry.name);
-
           if (dotfiles === false && entry.name.startsWith('.')) {
-            this.log.verbose(`scanner: skipping dotfile ${ relative }`);
+            this.log.verbose(`scanner: skipping dotfile ${ directory }/${ entry.name }`);
             return next();
           }
 
-          if (entry.isSymbolicLink() && !followSymlinks) {
-            this.log.verbose(`scanner: skipping symlink ${ relative }`);
-            return next();
-          }
-
-          if (entry.isDirectory() && recursive || entry.isFile() && anymatch(files, entry.name)) {
-            return fs.realpath(relative, (error, path) => {
-              if (error) {
-                return next(error);
-              }
-
-              if (this.seen.has(path)) {
-                this.log.info(`scanner: skipping seen entry ${ path }`);
-                return next();
-              }
-
-              if (exclude && anymatch(exclude, path)) {
-                this.log.info(`scanner: excluding ${ path }`);
-                return next();
-              }
-
-              if (entry.isDirectory()) {
-                this.log.info(`scanner: queueing directory ${ path }`);
-                this.queue.push({
-                  directory: path,
-                  depth: depth + 1,
-                });
-              } else if (entry.isFile()) {
-                this.seen.add(path);
-                this.stats.files++;
-
-                this.emit({
-                  type: 'file',
-                  data: {
-                    index: this.stats.files,
-                    path,
-                  },
-                });
-              }
+          if (entry.isDirectory()) {
+            if (!recursive) {
+              this.log.verbose(`scanner: not recursivelt scanning ${ directory }/${ entry.name }`);
               return next();
-            });
+            }
+
+            if (entry.isSymbolicLink() && !followSymlinks) {
+              this.log.verbose(`scanner: skipping symlink ${ directory }/${ entry.name }`);
+              return next();
+            }
           }
-          return next();
+
+          return this.realpath(directory, entry, (error, path) => {
+            if (error) {
+              return next(error);
+            }
+
+            if (this.seen.has(path)) {
+              this.log.info(`scanner: skipping seen entry ${ path }`);
+              return next();
+            }
+
+            if (entry.isDirectory()) {
+              if (exclude && anymatch(exclude, path)) {
+                this.log.verbose(`scanner: excluding ${ path }`);
+                return next();
+              }
+
+              this.log.info(`scanner: queueing directory ${ path }`);
+              this.queue.push({
+                directory: path,
+                depth: depth + 1,
+              });
+            } else if (entry.isFile()) {
+              if (files && !anymatch(files, path)) {
+                this.log.verbose(`scanner: excluding file ${ path }`);
+                return next();
+              }
+
+              this.seen.add(path);
+              this.stats.files++;
+
+              this.emit({
+                type: 'file',
+                data: {
+                  index: this.stats.files,
+                  path,
+                },
+              });
+              return next();
+            }
+            return next();
+          });
         }, (error) => done(error));
       });
     }, concurrency);
@@ -146,6 +153,15 @@ class Scanner extends EventBus {
 
   idle () {
     return this.queue.idle();
+  }
+
+  realpath (directory, entry, callback) {
+    const relative = join(directory, entry.name);
+
+    if (entry.isSymbolicLink()) {
+      return fs.realpath(relative, callback);
+    }
+    return setImmediate(() => callback(null, relative));
   }
 }
 
