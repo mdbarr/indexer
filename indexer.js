@@ -782,7 +782,7 @@ class Indexer {
     });
 
     this.seen = new Set();
-    this.scanner = new Scanner(this.config);
+    this.scanner = new Scanner(this.config, this.log);
 
     this.scanner.on('file', (event) => {
       if (!this.seen.has(event.data.path)) {
