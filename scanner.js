@@ -133,13 +133,21 @@ class Scanner extends EventBus {
       directories = [ directories ];
     }
 
-    for (const directory of directories) {
+    return async.each(directories, (directory, next) => fs.realpath(directory, (error, path) => {
+      if (error) {
+        this.log.error(`scanner: failed to find path of ${ directory }`);
+        this.log.error(error.toString());
+        return next();
+      }
+
       this.log.info(`scanner: adding directory ${ directory }`);
       this.queue.push({
-        directory,
+        directory: path,
         depth,
       });
-    }
+
+      return next();
+    }));
   }
 
   clear () {
