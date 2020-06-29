@@ -3,12 +3,13 @@
 const fs = require('fs');
 const async = require('async');
 const { join } = require('path');
+const anymatch = require('anymatch');
 const { EventBus } = require('@metastack/events');
 
 class Scanner extends EventBus {
   constructor ({
-    pattern = /\.(asf|avi|divx|flv|mkv|mov|mpe?g|mp4|mts|m[14]v|ts|vob|webm|wmv|3gp)$/i,
-    concurrency = 1, recursive = true, dotfiles = false, sort = false,
+    files = /\.(asf|avi|divx|flv|mkv|mov|mpe?g|mp4|mts|m[14]v|ts|vob|webm|wmv|3gp)$/i,
+    exclude, concurrency = 1, recursive = true, dotfiles = false, sort = false,
     maxDepth = 25, followSymlinks = true,
   } = {}, log) {
     super();
@@ -64,23 +65,28 @@ class Scanner extends EventBus {
           }
 
           if (entry.isSymbolicLink() && !followSymlinks) {
-            this.log.info(`scanner: skipping symlink ${ relative }`);
+            this.log.verbose(`scanner: skipping symlink ${ relative }`);
             return next();
           }
 
-          if (entry.isDirectory() && recursive || entry.isFile() && pattern.test(entry.name)) {
+          if (entry.isDirectory() && recursive || entry.isFile() && anymatch(files, entry.name)) {
             return fs.realpath(relative, (error, path) => {
               if (error) {
                 return next(error);
               }
 
               if (this.seen.has(path)) {
-                this.log.info(`scanner: skipping seen entry ${ relative }`);
+                this.log.info(`scanner: skipping seen entry ${ path }`);
+                return next();
+              }
+
+              if (exclude && anymatch(exclude, path)) {
+                this.log.info(`scanner: excluding ${ path }`);
                 return next();
               }
 
               if (entry.isDirectory()) {
-                this.log.info(`scanner: queueing directory ${ entry.name }`);
+                this.log.info(`scanner: queueing directory ${ path }`);
                 this.queue.push({
                   directory: path,
                   depth: depth + 1,
