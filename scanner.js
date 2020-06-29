@@ -9,31 +9,40 @@ class Scanner extends EventBus {
   constructor ({
     pattern = /\.(asf|avi|divx|flv|mkv|mov|mpe?g|mp4|mts|m[14]v|ts|vob|webm|wmv|3gp)$/i,
     concurrency = 1, recursive = true, dotfiles = false, sort = false,
+    maxDepth = 25, followSymlinks = true,
   } = {}, log) {
     super();
 
     this.log = log;
+    this.seen = new Set();
 
     this.stats = {
       directories: 0,
       files: 0,
     };
 
-    this.seen = new Set();
-    this.queue = async.queue((directory, next) => {
-      if (this.seen.has(directory)) {
-        this.log.info(`scanner: skipping seen directory ${ directory }`);
-        return next();
+    //////////
+
+    this.queue = async.queue((data, done) => {
+      const { directory, depth } = data;
+
+      if (depth > maxDepth) {
+        this.log.info(`scanner: skipping deep directory ${ directory }, depth ${ depth }`);
       }
 
-      this.log.info(`scanner: scanning directory ${ directory }`);
+      if (this.seen.has(directory)) {
+        this.log.info(`scanner: skipping seen directory ${ directory }`);
+        return done();
+      }
+
+      this.seen.add(directory);
+      this.stats.directories++;
+
+      this.log.info(`scanner: scanning ${ directory }`);
       return fs.readdir(directory, { withFileTypes: true }, (error, entries) => {
         if (error) {
-          return next(error);
+          return done(error);
         }
-
-        this.seen.add(directory);
-        this.stats.directories++;
 
         if (sort) {
           entries.sort((a, b) => {
@@ -46,43 +55,77 @@ class Scanner extends EventBus {
           });
         }
 
-        for (const entry of entries) {
+        return async.each(entries, (entry, next) => {
+          const relative = join(directory, entry.name);
+
           if (dotfiles === false && entry.name.startsWith('.')) {
-            continue;
+            this.log.verbose(`scanner: skipping dotfile ${ relative }`);
+            return next();
           }
 
-          const path = join(directory, entry.name);
+          if (entry.isSymbolicLink() && !followSymlinks) {
+            this.log.info(`scanner: skipping symlink ${ relative }`);
+            return next();
+          }
 
-          if (entry.isDirectory() && recursive) {
-            this.log.info(`scanner: queueing directory ${ entry.name }`);
-            this.queue.push(path);
-          } else if (entry.isFile() && !this.seen.has(path) &&
-                     pattern.test(entry.name)) {
-            this.seen.has(path);
-            this.stats.files++;
+          if (entry.isDirectory() && recursive || entry.isFile() && pattern.test(entry.name)) {
+            return fs.realpath(relative, (error, path) => {
+              if (error) {
+                return next(error);
+              }
 
-            this.emit({
-              type: 'file',
-              data: {
-                index: this.stats.files,
-                path,
-              },
+              if (this.seen.has(path)) {
+                this.log.info(`scanner: skipping seen entry ${ relative }`);
+                return next();
+              }
+
+              if (entry.isDirectory()) {
+                this.log.info(`scanner: queueing directory ${ entry.name }`);
+                this.queue.push({
+                  directory: path,
+                  depth: depth + 1,
+                });
+              } else if (entry.isFile()) {
+                this.seen.add(path);
+                this.stats.files++;
+
+                this.emit({
+                  type: 'file',
+                  data: {
+                    index: this.stats.files,
+                    path,
+                  },
+                });
+              }
+              return next();
             });
           }
-        }
-
-        return next();
+          return next();
+        }, (error) => done(error));
       });
     }, concurrency);
+
+    this.queue.error((error, data) => {
+      this.log.error(`scanner: error scanning ${ data.directory }`);
+      this.log.error(error.toString());
+    });
+
+    this.queue.drain(() => {
+      this.log.info('scanner: done!');
+    });
   }
 
-  add (directories) {
-    if (Array.isArray(directories)) {
-      this.log.info(`scanner: adding directories ${ directories }`);
-      directories.forEach((directory) => this.queue.push(directory));
-    } else {
-      this.log.info(`scanner: adding directory ${ directories }`);
-      this.queue.push(directories);
+  add (directories, depth = 0) {
+    if (!Array.isArray(directories)) {
+      directories = [ directories ];
+    }
+
+    for (const directory of directories) {
+      this.log.info(`scanner: adding directory ${ directory }`);
+      this.queue.push({
+        directory,
+        depth,
+      });
     }
   }
 
