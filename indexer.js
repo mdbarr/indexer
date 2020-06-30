@@ -54,6 +54,7 @@ const defaults = {
   exclude: [ '**/node_modules/**' ],
   sort: false,
   db: 'mongodb://localhost:27017/indexer',
+  collection: 'media',
   concurrency: 2,
   rescan: 3600000,
   persistent: false,
@@ -848,7 +849,7 @@ class Indexer {
       }
 
       this.db = this.client.db();
-      this.media = this.db.collection('media');
+      this.media = this.db.collection(this.config.collection);
 
       return this.media.createIndexes([
         {
