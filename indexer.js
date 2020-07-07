@@ -70,7 +70,8 @@ const defaults = {
   thumbnailFormat: 'png',
   thumbnailTime: 5,
   thumbnail: '-i $output -ss 00:00:$time -vframes 1 $thumbnail -y',
-  sound: '-t 10 -i $file -af volumedetect -f null -max_muxing_queue_size 99999 /dev/null',
+  sound: '-t $duration -i $file -af volumedetect -f null -max_muxing_queue_size 99999 /dev/null',
+  soundDuration: 300,
   preview: '-i $input -an -max_muxing_queue_size 99999 -vcodec libx264 -pix_fmt yuv420p' +
     " -profile:v baseline -level 3 -vf select='lt(mod(t,$interval),1)'," +
     'setpts=N/FRAME_RATE/TB,pad=ceil(iw/2)*2:ceil(ih/2)*2 $output -y -hide_banner',
@@ -420,7 +421,7 @@ class Indexer {
     const soundArgs = this.config.sound.
       trim().
       split(/\s+/).
-      map((arg) => arg.replace('$file', file));
+      map((arg) => arg.replace('$file', file).replace('$duration', this.config.soundDuration));
 
     return execFile(this.config.ffmpeg, soundArgs, (error, stdout, soundInfo) => {
       if (error) {
