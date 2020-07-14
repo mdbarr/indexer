@@ -3,17 +3,18 @@
 const fs = require('fs');
 const async = require('async');
 const { join } = require('path');
+const logger = require('./logger');
 const anymatch = require('anymatch');
 const { EventBus } = require('@metastack/events');
 
 class Scanner extends EventBus {
   constructor ({
     files, exclude, concurrency = 1, recursive = true, dotfiles = false,
-    sort = false, maxDepth = 25, followSymlinks = true,
+    sort = false, maxDepth = 25, followSymlinks = true, logs,
   } = {}, log) {
     super();
 
-    this.log = log;
+    this.log = log || logger(logs);
     this.seen = new Set();
 
     this.stats = {

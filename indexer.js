@@ -5,7 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const async = require('async');
 const { join } = require('path');
-const winston = require('winston');
+const logger = require('./logger');
 const Scanner = require('./scanner');
 const utils = require('barrkeep/utils');
 const style = require('barrkeep/style');
@@ -40,10 +40,6 @@ function hasSubtitles (details) {
   }
   return subtitles;
 }
-
-const logFormat = winston.format.combine(
-  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-  winston.format.printf(info => `[${ info.timestamp }] ${ info.level }: ${ info.message }`));
 
 //////////
 
@@ -107,21 +103,7 @@ class Indexer {
       this.tagger = this.config.tagger;
     }
 
-    this.log = winston.createLogger({ level: 'info' });
-
-    if (this.config.logs.combined) {
-      this.log.add(new winston.transports.File({
-        format: logFormat,
-        filename: this.config.logs.combined,
-      }));
-    }
-    if (this.config.logs.error) {
-      this.log.add(new winston.transports.File({
-        format: logFormat,
-        filename: this.config.logs.error,
-        level: 'error',
-      }));
-    }
+    this.log = logger(this.config.logs);
 
     this.stats = {
       converted: 0,
