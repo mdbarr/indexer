@@ -15,7 +15,7 @@
     "barrkeep": "^2.6.6",
     "mongodb": "^3.5.9",
     "winston": "^3.3.3",
-    "yargs": "^15.4.0"
+    "yargs": "^15.4.1"
   },
   "devDependencies": {
     "eslint": "^7.4.0"
