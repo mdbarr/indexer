@@ -185,9 +185,9 @@ class Indexer {
       name: occurrence.name,
       description: '',
       hash,
-      relative: output.replace(this.config.save, '').replace(/^\//, ''),
-      thumbnail: thumbnail.replace(this.config.save, '').replace(/^\//, ''),
-      preview: preview.replace(this.config.save, '').replace(/^\//, ''),
+      relative: output.replace(this.config.video.save, '').replace(/^\//, ''),
+      thumbnail: thumbnail.replace(this.config.video.save, '').replace(/^\//, ''),
+      preview: preview.replace(this.config.video.save, '').replace(/^\//, ''),
       size: converted.size,
       duration,
       aspect,
@@ -217,7 +217,7 @@ class Indexer {
   }
 
   skipFile (file, callback) {
-    if (this.config.canSkip && !this.config.delete) {
+    if (this.config.video.canSkip && !this.config.video.delete) {
       return this.media.findOne({ 'metadata.occurrences.file': file }, (error, item) => {
         if (error) {
           return callback(error);
@@ -280,12 +280,12 @@ class Indexer {
 
       this.log.info(`probing detailed information for ${ file }`);
 
-      const probeArgs = this.config.probe.
+      const probeArgs = this.config.video.probe.
         trim().
         split(/\s+/).
         map((arg) => arg.replace('$file', file));
 
-      return execFile(this.config.ffprobe, probeArgs, (error, info, stderr) => {
+      return execFile(this.config.video.ffprobe, probeArgs, (error, info, stderr) => {
         if (error) {
           return callback(stderr || error);
         }
@@ -303,7 +303,7 @@ class Indexer {
   }
 
   delete (file, callback) {
-    if (this.config.delete) {
+    if (this.config.video.delete) {
       this.log.info(`deleting ${ file }`);
 
       return fs.unlink(file, (error) => {
@@ -319,9 +319,9 @@ class Indexer {
   }
 
   preview (input, output, duration, callback) {
-    const interval = Math.ceil(duration / this.config.previewDuration);
+    const interval = Math.ceil(duration / this.config.video.previewDuration);
 
-    const previewArgs = this.config.preview.
+    const previewArgs = this.config.video.preview.
       trim().
       split(/\s+/).
       map((arg) => arg.replace('$input', input).
@@ -330,7 +330,7 @@ class Indexer {
 
     this.log.info(`generating preview video for ${ input }`);
 
-    return execFile(this.config.ffmpeg, previewArgs, (error, stdout, stderr) => {
+    return execFile(this.config.video.ffmpeg, previewArgs, (error, stdout, stderr) => {
       if (error) {
         return callback(stderr || error);
       }
@@ -342,17 +342,17 @@ class Indexer {
   }
 
   hasSound (file, callback) {
-    if (!this.config.checkSound) {
+    if (!this.config.video.checkSound) {
       return setImmediate(() => callback(null, null));
     }
 
     this.log.info(`checking for sound in ${ file }`);
-    const soundArgs = this.config.sound.
+    const soundArgs = this.config.video.sound.
       trim().
       split(/\s+/).
-      map((arg) => arg.replace('$file', file).replace('$duration', this.config.soundDuration));
+      map((arg) => arg.replace('$file', file).replace('$duration', this.config.video.soundDuration));
 
-    return execFile(this.config.ffmpeg, soundArgs, (error, stdout, soundInfo) => {
+    return execFile(this.config.video.ffmpeg, soundArgs, (error, stdout, soundInfo) => {
       if (error) {
         return callback(soundInfo);
       }
@@ -431,7 +431,7 @@ class Indexer {
       };
 
       this.log.info(`hashing ${ file }`);
-      return execFile(this.config.shasum, [ file ], (error, sha, stderr) => {
+      return execFile(this.config.video.shasum, [ file ], (error, sha, stderr) => {
         slot.spinner.stop();
 
         if (error) {
@@ -483,26 +483,26 @@ class Indexer {
             occurrence.size = stat.size;
             occurrence.timestamp = new Date(stat.mtime).getTime();
 
-            const directory = join(this.config.save, id.substring(0, 2));
+            const directory = join(this.config.video.save, id.substring(0, 2));
             const filename = id.substring(2);
 
-            const output = join(directory, `${ filename }.${ this.config.format }`);
-            const preview = join(directory, `${ filename }p.${ this.config.format }`);
+            const output = join(directory, `${ filename }.${ this.config.video.format }`);
+            const preview = join(directory, `${ filename }p.${ this.config.video.format }`);
 
             return fs.mkdir(directory, { recursive: true }, (error) => {
               if (error) {
                 return callback(error);
               }
 
-              const convertCommand = hasSubtitles(details) ? this.config.convertSubtitles :
-                this.config.convert;
+              const convertCommand = hasSubtitles(details) ? this.config.video.convertSubtitles :
+                this.config.video.convert;
 
               const convertArgs = convertCommand.
                 trim().
                 split(/\s+/).
                 map((arg) => arg.replace('$input', file).
                   replace('$output', output).
-                  replace('$format', this.config.format));
+                  replace('$format', this.config.video.format));
 
               this.log.info(`converting ${ name }.${ extension } in slot ${ slot.index }`);
 
@@ -524,7 +524,7 @@ class Indexer {
                 slow++;
               };
 
-              const convert = spawn(this.config.ffmpeg, convertArgs,
+              const convert = spawn(this.config.video.ffmpeg, convertArgs,
                 { stdio: [ 'ignore', 'ignore', 'pipe' ] });
 
               let log = '';
@@ -568,7 +568,7 @@ class Indexer {
                 };
 
                 this.log.info(`checking for duplicate of ${ output }`);
-                return execFile(this.config.shasum, [ output ], (error, outputSha) => {
+                return execFile(this.config.video.shasum, [ output ], (error, outputSha) => {
                   if (error) {
                     return callback(error);
                   }
@@ -602,15 +602,15 @@ class Indexer {
                     }
                     this.log.info(`no duplicates of ${ output } (${ hash }) found`);
 
-                    const thumbnail = output.replace(this.config.format, this.config.thumbnailFormat);
-                    let time = Math.floor(Math.min(this.config.thumbnailTime, Number(details.format.duration) - 1));
+                    const thumbnail = output.replace(this.config.video.format, this.config.video.thumbnailFormat);
+                    let time = Math.floor(Math.min(this.config.video.thumbnailTime, Number(details.format.duration) - 1));
                     if (Number.isNaN(time) || time === Infinity) {
                       time = 0;
                     }
 
                     const timeString = time.toFixed(3).padStart(6, '0');
 
-                    const thumbnailArgs = this.config.thumbnail.
+                    const thumbnailArgs = this.config.video.thumbnail.
                       trim().
                       split(/\s+/).
                       map((arg) => arg.replace('$output', output).
@@ -619,7 +619,7 @@ class Indexer {
 
                     this.log.info(`generating thumbnail ${ thumbnail }`);
 
-                    return execFile(this.config.ffmpeg, thumbnailArgs, (error, stdout, thumbnailError) => {
+                    return execFile(this.config.video.ffmpeg, thumbnailArgs, (error, stdout, thumbnailError) => {
                       if (error) {
                         return callback(thumbnailError || error);
                       }
@@ -761,7 +761,7 @@ class Indexer {
     console.log('  Converted:', utils.formatNumber(this.stats.converted, { numeral: true }));
     console.log('  Failed:', utils.formatNumber(this.stats.failed, { numeral: true }));
     console.log('  Duplicates:', utils.formatNumber(this.stats.duplicates, { numeral: true }));
-    if (this.config.canSkip && !this.config.delete) {
+    if (this.config.video.canSkip && !this.config.video.delete) {
       console.log('  Skipped:', utils.formatNumber(this.stats.skipped, { numeral: true }));
     }
   }
