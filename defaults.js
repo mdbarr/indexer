@@ -8,7 +8,20 @@ const version = require('./package.json').version;
 module.exports = {
   name: `Indexer v${ version }`,
   scan: process.cwd(),
-  files: /\.(asf|avi|divx|flv|mkv|mov|mpe?g|mp4|mts|m[14]v|ts|vob|webm|wmv|3gp)$/i,
+  types: {
+    image: {
+      pattern: /\.(gif|png|jepg|jpg|tiff)$/i,
+      enabled: false,
+    },
+    text: {
+      pattern: /\.(md|text|txt)$/i,
+      enabled: false,
+    },
+    video: {
+      pattern: /\.(asf|avi|divx|flv|mkv|mov|mpe?g|mp4|mts|m[14]v|ts|vob|webm|wmv|3gp)$/i,
+      enabled: true,
+    },
+  },
   exclude: [ '**/node_modules/**' ],
   sort: false,
   db: 'mongodb://localhost:27017/indexer',

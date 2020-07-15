@@ -9,7 +9,7 @@ const { EventBus } = require('@metastack/events');
 
 class Scanner extends EventBus {
   constructor ({
-    files, exclude, concurrency = 1, recursive = true, dotfiles = false,
+    types, exclude, concurrency = 1, recursive = true, dotfiles = false,
     sort = false, maxDepth = 25, followSymlinks = true, logs,
   } = {}, log) {
     super();
@@ -96,8 +96,17 @@ class Scanner extends EventBus {
                 depth: depth + 1,
               });
             } else if (entry.isFile()) {
-              if (files && !anymatch(files, path)) {
-                this.log.verbose(`scanner: excluding file ${ path }`);
+              let kind = 'unknown';
+
+              for (const type in types) {
+                if (types[type].enabled && anymatch(types[type].pattern, path)) {
+                  kind = type;
+                  break;
+                }
+              }
+
+              if (kind === 'unknown') {
+                this.log.verbose(`scanner: excluding unknown type ${ path }`);
                 return next();
               }
 
@@ -105,9 +114,10 @@ class Scanner extends EventBus {
               this.stats.files++;
 
               this.emit({
-                type: 'file',
+                type: `file:${ kind }`,
                 data: {
                   index: this.stats.files,
+                  type: kind,
                   path,
                 },
               });

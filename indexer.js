@@ -110,7 +110,7 @@ class Indexer {
     this.seen = new Set();
     this.scanner = new Scanner(this.config, this.log);
 
-    this.scanner.on('file', (event) => {
+    this.scanner.on('file:video', (event) => {
       if (!this.seen.has(event.data.path)) {
         this.seen.add(event.data.path);
 
