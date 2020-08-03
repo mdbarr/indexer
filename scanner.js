@@ -5,7 +5,7 @@ const async = require('async');
 const { join } = require('path');
 const logger = require('./logger');
 const anymatch = require('anymatch');
-const { EventBus } = require('@metastack/events');
+const { EventBus } = require('@hyperingenuity/events');
 
 class Scanner extends EventBus {
   constructor ({
