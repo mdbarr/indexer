@@ -33,12 +33,15 @@ module.exports = {
     shasum: '/usr/bin/md5sum',
     ffmpeg: '/usr/bin/ffmpeg',
     convert: '-i $input -f $format -vcodec h264 -acodec aac -pix_fmt yuv420p -profile:v' +
-      ' baseline -level 3 -vsync 2 -max_muxing_queue_size 99999 -vf pad=ceil(iw/2)*2:ceil(ih/2)*2' +
+      ' baseline -level 3 -vsync 1 -r $framerate -avoid_negative_ts 1 -fflags +genpts' +
+      ' -max_muxing_queue_size 99999 -vf pad=ceil(iw/2)*2:ceil(ih/2)*2' +
       ' -analyzeduration 2147483647 -probesize 2147483647 $output -hide_banner -y',
     convertSubtitles: '-i $input -f $format -vcodec h264 -acodec aac -pix_fmt yuv420p -profile:v' +
-      " baseline -level 3 -vsync 2 -max_muxing_queue_size 99999 -filter_complex subtitles='$input'" +
+      ' baseline -level 3 -vsync 1 -r $framerate -avoid_negative_ts 1 -fflags +genpts' +
+      " -max_muxing_queue_size 99999 -filter_complex subtitles='$input'" +
       ' -analyzeduration 2147483647 -probesize 2147483647 $output -hide_banner -y',
     format: 'mp4',
+    framerate: 30,
     thumbnailFormat: 'png',
     thumbnailTime: 5,
     thumbnail: '-i $output -ss 00:00:$time -vframes 1 $thumbnail -y',

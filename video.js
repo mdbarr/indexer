@@ -250,6 +250,7 @@ class Video {
       split(/\s+/).
       map((arg) => arg.replace('$input', input).
         replace('$output', output).
+        replace('$framerate', this.indexer.config.video.framerate).
         replace('$interval', interval));
 
     this.indexer.log.info(`generating preview video for ${ input }`);
@@ -426,7 +427,8 @@ class Video {
                 split(/\s+/).
                 map((arg) => arg.replace('$input', file).
                   replace('$output', output).
-                  replace('$format', this.indexer.config.video.format));
+                  replace('$format', this.indexer.config.video.format).
+                  replace('$framerate', this.indexer.config.video.framerate));
 
               this.indexer.log.info(`converting ${ name }.${ extension } in slot ${ slot.index }`);
 
