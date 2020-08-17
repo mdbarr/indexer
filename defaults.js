@@ -7,6 +7,7 @@ const version = require('./package.json').version;
 
 module.exports = {
   name: `Indexer v${ version }`,
+  version,
   scan: process.cwd(),
   types: {
     image: {
