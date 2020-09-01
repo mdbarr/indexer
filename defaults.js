@@ -39,7 +39,7 @@ module.exports = {
       ' -analyzeduration 2147483647 -probesize 2147483647 $output -hide_banner -y',
     convertSubtitles: '-i $input -f $format -vcodec h264 -acodec aac -pix_fmt yuv420p -profile:v' +
       ' baseline -level 3 -vsync 1 -r $framerate -avoid_negative_ts 1 -fflags +genpts' +
-      " -max_muxing_queue_size 99999 -filter_complex subtitles='$input'" +
+      " -max_muxing_queue_size 99999 -filter_complex subtitles='$subtitles'" +
       ' -analyzeduration 2147483647 -probesize 2147483647 $output -hide_banner -y',
     format: 'mp4',
     framerate: 30,
@@ -63,6 +63,7 @@ module.exports = {
       if (config.dropTags) {
         model.metadata.tags = [];
       }
+
       if (Array.isArray(model.metadata.tags) && model.metadata.tags.length === 0) {
         model.metadata.tags.push('untagged');
       }

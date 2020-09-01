@@ -422,10 +422,13 @@ class Video {
               const convertCommand = hasSubtitles(details) ? this.indexer.config.video.convertSubtitles :
                 this.indexer.config.video.convert;
 
+              const subtitles = file.replace(/'/g, '\\$1');
+
               const convertArgs = convertCommand.
                 trim().
                 split(/\s+/).
                 map((arg) => arg.replace('$input', file).
+                  replace('$subtitles', subtitles).
                   replace('$output', output).
                   replace('$format', this.indexer.config.video.format).
                   replace('$framerate', this.indexer.config.video.framerate));
