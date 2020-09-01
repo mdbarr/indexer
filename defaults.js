@@ -63,7 +63,7 @@ module.exports = {
       if (config.dropTags) {
         model.metadata.tags = [];
       }
-      if (model.metadata.tags.length === 0) {
+      if (Array.isArray(model.metadata.tags) && model.metadata.tags.length === 0) {
         model.metadata.tags.push('untagged');
       }
 
