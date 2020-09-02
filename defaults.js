@@ -27,7 +27,7 @@ module.exports = {
   sort: false,
   db: 'mongodb://localhost:27017/indexer',
   collection: 'media',
-  concurrency: 2,
+  concurrency: 1,
   rescan: 3600000,
   persistent: false,
   video: {
@@ -39,6 +39,7 @@ module.exports = {
       ' -analyzeduration 2147483647 -probesize 2147483647 $output -hide_banner -y',
     subtitleFormat: 'srt',
     subtitleLanguage: 'eng',
+    subtitleFallback: '-i $input $output -y',
     subtitle: '-i $input -map 0:m:language:$language? $output -y',
     format: 'mp4',
     framerate: 30,

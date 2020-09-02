@@ -296,7 +296,7 @@ class Video {
     file, details, output,
   }, callback) {
     if (hasSubtitles(details)) {
-      const subtitleArgs = this.indexer.config.video.subtitle.
+      let subtitleArgs = this.indexer.config.video.subtitle.
         trim().
         split(/\s+/).
         map((arg) => arg.replace('$input', file).
@@ -305,8 +305,21 @@ class Video {
 
       return execFile(this.indexer.config.video.ffmpeg, subtitleArgs, (error) => {
         if (error) {
-          this.indexer.log.info(`failed to extract subtitles ${ error } ${ file } ${ output }`);
-          return callback(false);
+          subtitleArgs = this.indexer.config.video.subtitleFallback.
+            trim().
+            split(/\s+/).
+            map((arg) => arg.replace('$input', file).
+              replace('$output', output));
+
+          return execFile(this.indexer.config.video.ffmpeg, subtitleArgs, (error) => {
+            if (error) {
+              this.indexer.log.info(`failed to extract subtitles ${ error } ${ file } ${ output }`);
+              return callback(false);
+            }
+
+            this.indexer.log.info(`extracted subtitles using fallback to ${ output }`);
+            return callback(output);
+          });
         }
 
         this.indexer.log.info(`extracted subtitles to ${ output }`);
