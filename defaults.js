@@ -35,12 +35,11 @@ module.exports = {
     ffmpeg: '/usr/bin/ffmpeg',
     convert: '-i $input -f $format -vcodec h264 -acodec aac -pix_fmt yuv420p -profile:v' +
       ' baseline -level 3 -vsync 1 -r $framerate -avoid_negative_ts 1 -fflags +genpts' +
-      ' -max_muxing_queue_size 99999 -vf pad=ceil(iw/2)*2:ceil(ih/2)*2' +
+      ' -map_chapters -1 -max_muxing_queue_size 99999 -vf pad=ceil(iw/2)*2:ceil(ih/2)*2' +
       ' -analyzeduration 2147483647 -probesize 2147483647 $output -hide_banner -y',
-    convertSubtitles: '-i $input -f $format -vcodec h264 -acodec aac -pix_fmt yuv420p -profile:v' +
-      ' baseline -level 3 -vsync 1 -r $framerate -avoid_negative_ts 1 -fflags +genpts' +
-      " -max_muxing_queue_size 99999 -filter_complex subtitles='$subtitles'" +
-      ' -analyzeduration 2147483647 -probesize 2147483647 $output -hide_banner -y',
+    subtitleFormat: 'srt',
+    subtitleLanguage: 'eng',
+    subtitle: '-i $input -map 0:m:language:$language? $output -y',
     format: 'mp4',
     framerate: 30,
     thumbnailFormat: 'png',

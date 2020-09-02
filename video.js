@@ -77,7 +77,8 @@ class Video {
   }
 
   model ({
-    id, hash, occurrence, occurrences, output, converted, thumbnail, preview, info, sound,
+    id, hash, occurrence, occurrences, output, converted,
+    thumbnail, preview, subtitles, info, sound,
   }) {
     let duration;
     let aspect;
@@ -112,6 +113,7 @@ class Video {
       relative: output.replace(this.indexer.config.video.save, '').replace(/^\//, ''),
       thumbnail: thumbnail.replace(this.indexer.config.video.save, '').replace(/^\//, ''),
       preview: preview.replace(this.indexer.config.video.save, '').replace(/^\//, ''),
+      subtitles: subtitles.replace(this.indexer.config.video.save, '').replace(/^\//, ''),
       size: converted.size,
       duration,
       aspect,
@@ -290,6 +292,30 @@ class Video {
     });
   }
 
+  extractSubtitles ({
+    file, details, output,
+  }, callback) {
+    if (hasSubtitles(details)) {
+      const subtitleArgs = this.indexer.config.video.subtitle.
+        trim().
+        split(/\s+/).
+        map((arg) => arg.replace('$input', file).
+          replace('$output', output).
+          replace('$language', this.indexer.config.video.subtitleLanguage));
+
+      return execFile(this.indexer.config.video.ffmpeg, subtitleArgs, (error) => {
+        if (error) {
+          this.indexer.log.info(`failed to extract subtitles ${ error } ${ file } ${ output }`);
+          return callback(false);
+        }
+
+        this.indexer.log.info(`extracted subtitles to ${ output }`);
+        return callback(output);
+      });
+    }
+    return setImmediate(() => callback(false));
+  }
+
   converter ({ file, slot }, callback) {
     return this.skipFile(file, (error, skip) => {
       if (error) {
@@ -419,22 +445,6 @@ class Video {
                 return callback(error);
               }
 
-              const convertCommand = hasSubtitles(details) ? this.indexer.config.video.convertSubtitles :
-                this.indexer.config.video.convert;
-
-              const subtitles = file.replace(/'/g, "\\'");
-
-              const convertArgs = convertCommand.
-                trim().
-                split(/\s+/).
-                map((arg) => arg.replace('$input', file).
-                  replace('$subtitles', subtitles).
-                  replace('$output', output).
-                  replace('$format', this.indexer.config.video.format).
-                  replace('$framerate', this.indexer.config.video.framerate));
-
-              this.indexer.log.info(`converting ${ name }.${ extension } in slot ${ slot.index }`);
-
               slot.progress = new ProgressBar({
                 format: scrollName('  Converting $name $left$progress$right $percent ($eta remaining)'),
                 total: Infinity,
@@ -453,162 +463,179 @@ class Video {
                 slow++;
               };
 
-              const convert = spawn(this.indexer.config.video.ffmpeg, convertArgs,
-                { stdio: [ 'ignore', 'ignore', 'pipe' ] });
+              return this.extractSubtitles({
+                file,
+                details,
+                output: join(directory, `${ filename }.${ this.indexer.config.video.subtitleFormat }`),
+              }, (subtitles) => {
+                const convertArgs = this.indexer.config.video.convert.
+                  trim().
+                  split(/\s+/).
+                  map((arg) => arg.replace('$input', file).
+                    replace('$output', output).
+                    replace('$format', this.indexer.config.video.format).
+                    replace('$framerate', this.indexer.config.video.framerate));
 
-              let log = '';
-              convert.stderr.on('data', (data) => {
-                data = data.toString();
-                log += data;
+                this.indexer.log.info(`converting ${ name }.${ extension } in slot ${ slot.index }`);
 
-                if (slot.progress.total === Infinity && durationRegExp.test(log)) {
-                  const [ , duration ] = log.match(durationRegExp);
-                  slot.progress.total = timeToValue(duration);
-                } else if (timeRegExp.test(data)) {
-                  const [ , time ] = data.match(timeRegExp);
-                  slot.progress.value = timeToValue(time);
-                }
-              });
+                const convert = spawn(this.indexer.config.video.ffmpeg, convertArgs,
+                  { stdio: [ 'ignore', 'ignore', 'pipe' ] });
 
-              convert.on('exit', (code) => {
-                slot.progress.done();
+                let log = '';
+                convert.stderr.on('data', (data) => {
+                  data = data.toString();
+                  log += data;
 
-                if (code !== 0) {
-                  this.indexer.log.error(`failed to convert ${ name }.${ extension } - exited ${ code }`);
-                  this.indexer.log.error(log);
-                  return callback(new Error(`Failed to convert ${ name }.${ extension } - exited ${ code }`));
-                }
-
-                this.indexer.log.info(`converted ${ name }.${ extension }!`);
-
-                slot.spinner = new Spinner({
-                  prepend: scrollName('  Generating preview and metadata for $name '),
-                  spinner: 'dots4',
-                  style: 'fg: DodgerBlue1',
-                  x: 0,
-                  y: slot.y,
+                  if (slot.progress.total === Infinity && durationRegExp.test(log)) {
+                    const [ , duration ] = log.match(durationRegExp);
+                    slot.progress.total = timeToValue(duration);
+                  } else if (timeRegExp.test(data)) {
+                    const [ , time ] = data.match(timeRegExp);
+                    slot.progress.value = timeToValue(time);
+                  }
                 });
-                slot.spinner.start();
-                slot.spinner.onTick = () => {
-                  if (slow % 2 === 0) {
-                    slot.spinner.prepend = scrollName();
-                  }
-                  slow++;
-                };
 
-                this.indexer.log.info(`checking for duplicate of ${ output }`);
-                return execFile(this.indexer.config.video.shasum, [ output ], (error, outputSha) => {
-                  if (error) {
-                    return callback(error);
+                convert.on('exit', (code) => {
+                  slot.progress.done();
+
+                  if (code !== 0) {
+                    this.indexer.log.error(`failed to convert ${ name }.${ extension } - exited ${ code }`);
+                    this.indexer.log.error(log);
+                    return callback(new Error(`Failed to convert ${ name }.${ extension } - exited ${ code }`));
                   }
 
-                  const [ hash ] = outputSha.trim().split(/\s+/);
+                  this.indexer.log.info(`converted ${ name }.${ extension }!`);
 
-                  this.indexer.log.info(`${ output } has id ${ hash }`);
+                  slot.spinner = new Spinner({
+                    prepend: scrollName('  Generating preview and metadata for $name '),
+                    spinner: 'dots4',
+                    style: 'fg: DodgerBlue1',
+                    x: 0,
+                    y: slot.y,
+                  });
+                  slot.spinner.start();
+                  slot.spinner.onTick = () => {
+                    if (slow % 2 === 0) {
+                      slot.spinner.prepend = scrollName();
+                    }
+                    slow++;
+                  };
 
-                  return this.lookup({ hash }, (error, duplicate) => {
+                  this.indexer.log.info(`checking for duplicate of ${ output }`);
+                  return execFile(this.indexer.config.video.shasum, [ output ], (error, outputSha) => {
                     if (error) {
-                      slot.spinner.stop();
                       return callback(error);
                     }
 
-                    if (duplicate) {
-                      this.indexer.log.info(`match for converted ${ hash } found`);
-                      return this.duplicate(duplicate, occurrence, (error, updated) => {
-                        if (error) {
-                          slot.spinner.stop();
-                          return callback(error);
-                        }
-                        return fs.unlink(output, (error) => {
-                          slot.spinner.stop();
-                          if (error) {
-                            return callback(error);
-                          }
-                          // attempt to delete directory, ignore error if it fails
-                          return fs.rmdir(directory, () => callback(null, updated));
-                        });
-                      });
-                    }
-                    this.indexer.log.info(`no duplicates of ${ output } (${ hash }) found`);
+                    const [ hash ] = outputSha.trim().split(/\s+/);
 
-                    const thumbnail = output.replace(this.indexer.config.video.format, this.indexer.config.video.thumbnailFormat);
-                    let time = Math.floor(Math.min(this.indexer.config.video.thumbnailTime, Number(details.format.duration) - 1));
-                    if (Number.isNaN(time) || time === Infinity) {
-                      time = 0;
-                    }
+                    this.indexer.log.info(`${ output } has id ${ hash }`);
 
-                    const timeString = time.toFixed(3).padStart(6, '0');
-
-                    const thumbnailArgs = this.indexer.config.video.thumbnail.
-                      trim().
-                      split(/\s+/).
-                      map((arg) => arg.replace('$output', output).
-                        replace('$thumbnail', thumbnail).
-                        replace('$time', timeString));
-
-                    this.indexer.log.info(`generating thumbnail ${ thumbnail }`);
-
-                    return execFile(this.indexer.config.video.ffmpeg, thumbnailArgs, (error, stdout, thumbnailError) => {
+                    return this.lookup({ hash }, (error, duplicate) => {
                       if (error) {
-                        return callback(thumbnailError || error);
+                        slot.spinner.stop();
+                        return callback(error);
                       }
 
-                      this.indexer.log.info(`generated thumbnail ${ thumbnail } at ${ timeString }s`);
+                      if (duplicate) {
+                        this.indexer.log.info(`match for converted ${ hash } found`);
+                        return this.duplicate(duplicate, occurrence, (error, updated) => {
+                          if (error) {
+                            slot.spinner.stop();
+                            return callback(error);
+                          }
+                          return fs.unlink(output, (error) => {
+                            slot.spinner.stop();
+                            if (error) {
+                              return callback(error);
+                            }
+                            // attempt to delete directory, ignore error if it fails
+                            return fs.rmdir(directory, () => callback(null, updated));
+                          });
+                        });
+                      }
+                      this.indexer.log.info(`no duplicates of ${ output } (${ hash }) found`);
 
-                      return this.examine(output, (error, converted, info) => {
+                      const thumbnail = output.replace(this.indexer.config.video.format, this.indexer.config.video.thumbnailFormat);
+                      let time = Math.floor(Math.min(this.indexer.config.video.thumbnailTime, Number(details.format.duration) - 1));
+                      if (Number.isNaN(time) || time === Infinity) {
+                        time = 0;
+                      }
+
+                      const timeString = time.toFixed(3).padStart(6, '0');
+
+                      const thumbnailArgs = this.indexer.config.video.thumbnail.
+                        trim().
+                        split(/\s+/).
+                        map((arg) => arg.replace('$output', output).
+                          replace('$thumbnail', thumbnail).
+                          replace('$time', timeString));
+
+                      this.indexer.log.info(`generating thumbnail ${ thumbnail }`);
+
+                      return execFile(this.indexer.config.video.ffmpeg, thumbnailArgs, (error, stdout, thumbnailError) => {
                         if (error) {
-                          return callback(error);
+                          return callback(thumbnailError || error);
                         }
 
-                        this.indexer.log.info(`obtained info for ${ output }`);
+                        this.indexer.log.info(`generated thumbnail ${ thumbnail } at ${ timeString }s`);
 
-                        return this.hasSound(output, (error, sound) => {
+                        return this.examine(output, (error, converted, info) => {
                           if (error) {
                             return callback(error);
                           }
 
-                          return this.preview(output, preview, info.format.duration, (error) => {
+                          this.indexer.log.info(`obtained info for ${ output }`);
+
+                          return this.hasSound(output, (error, sound) => {
                             if (error) {
                               return callback(error);
                             }
 
-                            const model = this.model({
-                              id,
-                              hash,
-                              occurrence,
-                              occurrences: slot.occurrences,
-                              output,
-                              converted,
-                              thumbnail,
-                              preview,
-                              info,
-                              sound,
-                            });
-
-                            return this.tag(model, (error) => {
+                            return this.preview(output, preview, info.format.duration, (error) => {
                               if (error) {
                                 return callback(error);
                               }
 
-                              this.indexer.log.info(`inserting ${ name } (${ id }) into db`);
+                              const model = this.model({
+                                id,
+                                hash,
+                                occurrence,
+                                occurrences: slot.occurrences,
+                                output,
+                                converted,
+                                thumbnail,
+                                preview,
+                                subtitles,
+                                info,
+                                sound,
+                              });
 
-                              return this.indexer.media.insertOne(model, (error) => {
+                              return this.tag(model, (error) => {
                                 if (error) {
                                   return callback(error);
                                 }
 
-                                this.indexer.log.info(`inserted ${ name } (${ id }) into db`);
-                                return this.delete(file, (error) => {
+                                this.indexer.log.info(`inserting ${ name } (${ id }) into db`);
+
+                                return this.indexer.media.insertOne(model, (error) => {
                                   if (error) {
                                     return callback(error);
                                   }
 
-                                  this.indexer.stats.converted++;
+                                  this.indexer.log.info(`inserted ${ name } (${ id }) into db`);
+                                  return this.delete(file, (error) => {
+                                    if (error) {
+                                      return callback(error);
+                                    }
 
-                                  slot.spinner.stop();
-                                  this.indexer.progress.value++;
-                                  this.indexer.tokens.processed++;
-                                  return callback(null, model);
+                                    this.indexer.stats.converted++;
+
+                                    slot.spinner.stop();
+                                    this.indexer.progress.value++;
+                                    this.indexer.tokens.processed++;
+                                    return callback(null, model);
+                                  });
                                 });
                               });
                             });
@@ -618,9 +645,8 @@ class Video {
                     });
                   });
                 });
+                return convert;
               });
-
-              return convert;
             });
           });
         });
