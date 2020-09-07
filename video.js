@@ -113,7 +113,7 @@ class Video {
       relative: output.replace(this.indexer.config.video.save, '').replace(/^\//, ''),
       thumbnail: thumbnail.replace(this.indexer.config.video.save, '').replace(/^\//, ''),
       preview: preview.replace(this.indexer.config.video.save, '').replace(/^\//, ''),
-      subtitles: subtitles.replace(this.indexer.config.video.save, '').replace(/^\//, ''),
+      subtitles: subtitles ? subtitles.replace(this.indexer.config.video.save, '').replace(/^\//, '') : false,
       size: converted.size,
       duration,
       aspect,
