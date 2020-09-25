@@ -571,7 +571,8 @@ class Video {
 
                       const thumbnail = output.replace(this.indexer.config.video.format, this.indexer.config.video.thumbnailFormat);
                       let time = Math.floor(Math.min(this.indexer.config.video.thumbnailTime, Number(details.format.duration) - 1));
-                      if (Number.isNaN(time) || time === Infinity) {
+
+                      if (Number.isNaN(time) || time === Infinity || time < 0) {
                         time = 0;
                       }
 
