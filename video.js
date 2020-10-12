@@ -101,6 +101,16 @@ class Video {
       }
     }
 
+    const sources = new Set([ id, hash ]);
+    if (occurrence) {
+      sources.add(occurrence.id);
+    }
+    if (Array.isArray(occurrences)) {
+      for (const item of occurrences) {
+        sources.add(item.id);
+      }
+    }
+
     const timestamp = Date.now();
 
     const model = {
@@ -110,6 +120,7 @@ class Video {
       name: occurrence.name,
       description: '',
       hash,
+      sources: Array.from(sources),
       relative: output.replace(this.indexer.config.video.save, '').replace(/^\//, ''),
       thumbnail: thumbnail.replace(this.indexer.config.video.save, '').replace(/^\//, ''),
       preview: preview.replace(this.indexer.config.video.save, '').replace(/^\//, ''),
