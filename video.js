@@ -144,13 +144,23 @@ class Video {
         private: false,
         tags: [ ],
       },
+      deleted: false,
     };
 
     return model;
   }
 
-  lookup (query, callback) {
-    return this.indexer.media.findOne(query, callback);
+  lookup (id, callback) {
+    return this.indexer.media.findOne({
+      sources: id,
+      deleted: { $ne: true },
+    }, (error, result) => {
+      if (error || result) {
+        return callback(error, result);
+      }
+
+      return this.indexer.media.findOne({ sources: id }, callback);
+    });
   }
 
   skipFile (file, callback) {
@@ -448,7 +458,7 @@ class Video {
         slot.id = id;
         slot.occurrences = [ occurrence ];
 
-        return this.lookup({ id }, (error, item) => {
+        return this.lookup(id, (error, item) => {
           if (error) {
             return callback(error);
           }
@@ -564,7 +574,7 @@ class Video {
 
                     this.indexer.log.info(`${ output } has id ${ hash }`);
 
-                    return this.lookup({ hash }, (error, duplicate) => {
+                    return this.lookup(hash, (error, duplicate) => {
                       if (error) {
                         slot.spinner.stop();
                         return callback(error);

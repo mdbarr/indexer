@@ -179,7 +179,7 @@ class Indexer {
         {
           key: { id: 1 },
           unique: true,
-        }, {
+        }, { key: { sources: 1 } }, {
           key: {
             name: 'text',
             description: 'text',
