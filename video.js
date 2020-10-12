@@ -152,15 +152,13 @@ class Video {
 
   lookup (id, callback) {
     return this.indexer.media.findOne({
-      sources: id,
-      deleted: { $ne: true },
-    }, (error, result) => {
-      if (error || result) {
-        return callback(error, result);
-      }
-
-      return this.indexer.media.findOne({ sources: id }, callback);
-    });
+      $or: [
+        {
+          sources: id,
+          deleted: { $ne: true },
+        }, { sources: id }, { id }, { hash: id },
+      ],
+    }, callback);
   }
 
   skipFile (file, callback) {
