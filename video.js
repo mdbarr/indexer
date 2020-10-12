@@ -183,6 +183,15 @@ class Video {
       model.metadata.occurrences.push(occurrence);
     }
 
+    const sources = new Set([ model.id, model.hash ]);
+    sources.add(occurrence.id);
+    if (Array.isArray(model.metadata.occurrences)) {
+      for (const item of model.metadata.occurrences) {
+        sources.add(item.id);
+      }
+    }
+    model.sources = Array.from(sources);
+
     this.indexer.log.info(`updating tags for ${ occurrence.id }`);
     return this.tag(model, (error, update) => {
       if (error) {
