@@ -27,7 +27,7 @@ module.exports = {
   sort: false,
   db: 'mongodb://localhost:27017/indexer',
   collection: 'media',
-  concurrency: 1,
+  concurrency: 2,
   rescan: 3600000,
   persistent: false,
   video: {
