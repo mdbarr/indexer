@@ -42,6 +42,12 @@ class Video {
     if (typeof this.indexer.config.video.tagger === 'function') {
       this.tagger = this.indexer.config.video.tagger;
     }
+
+    if (typeof this.indexer.config.video.delete === 'function') {
+      this.shouldDelete = this.indexer.config.video.delete;
+    } else {
+      this.shouldDelete = () => this.indexer.config.video.delete;
+    }
   }
 
   tag (model, callback) {
@@ -162,7 +168,7 @@ class Video {
   }
 
   skipFile (file, callback) {
-    if (this.indexer.config.video.canSkip && !this.indexer.config.video.delete) {
+    if (this.indexer.config.video.canSkip && !this.shouldDelete(file)) {
       return this.indexer.media.findOne({ 'metadata.occurrences.file': file }, (error, item) => {
         if (error) {
           return callback(error);
@@ -257,7 +263,7 @@ class Video {
   }
 
   delete (file, callback) {
-    if (this.indexer.config.video.delete) {
+    if (this.shouldDelete(file)) {
       this.indexer.log.info(`deleting ${ file }`);
 
       return fs.unlink(file, (error) => {
