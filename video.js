@@ -360,7 +360,24 @@ class Video {
         return callback(output);
       });
     }
-    return setImmediate(() => callback(false));
+    const existing = file.replace(/([^./]+)$/, this.indexer.config.video.subtitleFormat);
+
+    this.indexer.log.info(`checking for existing subtitles in ${ existing }`);
+    return fs.stat(existing, (error, stats) => {
+      if (error || !stats || !stats.isFile()) {
+        return callback(false);
+      }
+
+      this.indexer.log.info(`found existing subtitles in ${ existing }`);
+      return fs.copyFile(existing, output, (error) => {
+        if (error) {
+          return callback(false);
+        }
+
+        this.indexer.log.info(`existing subtitles copied to ${ output }`);
+        return callback(output);
+      });
+    });
   }
 
   converter ({ file, slot }, callback) {
