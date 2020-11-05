@@ -9,6 +9,7 @@
   "license": "MIT",
   "private": false,
   "dependencies": {
+    "@elastic/elasticsearch": "^7.9.1",
     "@hyperingenuity/events": "^0.3.0",
     "anymatch": "^3.1.1",
     "async": "^3.2.0",

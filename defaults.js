@@ -25,8 +25,11 @@ module.exports = {
   },
   exclude: [ '**/node_modules/**' ],
   sort: false,
-  db: 'mongodb://localhost:27017/indexer',
-  collection: 'media',
+  database: {
+    url: 'mongodb://localhost:27017/indexer',
+    collection: 'media',
+  },
+  elastic: { node: 'http://localhost:9200' },
   concurrency: 2,
   rescan: 3600000,
   persistent: false,

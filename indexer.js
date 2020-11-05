@@ -7,7 +7,6 @@ const logger = require('./logger');
 const Scanner = require('./scanner');
 const utils = require('barrkeep/utils');
 const style = require('barrkeep/style');
-const MongoClient = require('mongodb').MongoClient;
 const { ProgressBar } = require('barrkeep/progress');
 
 const Video = require('./video');
@@ -19,6 +18,9 @@ class Indexer {
   constructor (options = {}) {
     this.config = utils.merge(defaults, options);
     this.log = logger(this.config.logs);
+
+    this.database = require('./database')(this);
+    this.elastic = require('./elastic')(this);
 
     this.video = new Video(this);
 
@@ -161,42 +163,17 @@ class Indexer {
 
     console.log(`\x1b[H\x1b[2J\n${ this.config.name } starting up...`);
 
-    this.client = new MongoClient(this.config.db, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-
-    this.log.info(`connecting to ${ this.config.db }...`);
-    return this.client.connect((error) => {
+    return async.parallel([ this.database.start, this.elastic.start ], (error) => {
       if (error) {
         return callback(error);
       }
 
-      this.db = this.client.db();
-      this.media = this.db.collection(this.config.collection);
-
-      return this.media.createIndexes([
-        {
-          key: { id: 1 },
-          unique: true,
-        }, { key: { sources: 1 } }, {
-          key: {
-            name: 'text',
-            description: 'text',
-          },
-        },
-      ], (error) => {
+      return this.scan((error) => {
         if (error) {
           return callback(error);
         }
 
-        return this.scan((error) => {
-          if (error) {
-            return callback(error);
-          }
-
-          return this.client.close(callback);
-        });
+        return this.database.stop(callback);
       });
     });
   }

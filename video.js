@@ -157,7 +157,7 @@ class Video {
   }
 
   lookup (id, callback) {
-    return this.indexer.media.findOne({
+    return this.indexer.database.media.findOne({
       $or: [
         {
           sources: id,
@@ -169,7 +169,7 @@ class Video {
 
   skipFile (file, callback) {
     if (this.indexer.config.video.canSkip && !this.shouldDelete(file)) {
-      return this.indexer.media.findOne({ 'metadata.occurrences.file': file }, (error, item) => {
+      return this.indexer.database.media.findOne({ 'metadata.occurrences.file': file }, (error, item) => {
         if (error) {
           return callback(error);
         }
@@ -212,7 +212,7 @@ class Video {
         return callback(error);
       }
 
-      return this.indexer.media.replaceOne({ id: model.id }, update, (error) => {
+      return this.indexer.database.media.replaceOne({ id: model.id }, update, (error) => {
         if (error) {
           return callback(error);
         }
@@ -683,7 +683,7 @@ class Video {
 
                                 this.indexer.log.info(`inserting ${ name } (${ id }) into db`);
 
-                                return this.indexer.media.insertOne(model, (error) => {
+                                return this.indexer.database.media.insertOne(model, (error) => {
                                   if (error) {
                                     return callback(error);
                                   }

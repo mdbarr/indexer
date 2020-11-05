@@ -18,4 +18,8 @@ if (args.config) {
 //////////
 
 const indexer = new Indexer(config);
-indexer.start();
+indexer.start((error) => {
+  if (error) {
+    console.log(error);
+  }
+});
