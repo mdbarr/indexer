@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const { join } = require('path');
+const subtitle = require('subtitle');
 const style = require('barrkeep/style');
 const { execFile, spawn } = require('child_process');
 const { ProgressBar, Spinner } = require('barrkeep/progress');
@@ -352,12 +353,12 @@ class Video {
             }
 
             this.indexer.log.info(`extracted subtitles using fallback to ${ output }`);
-            return callback(output);
+            return this.extractSubtitlesText(output, callback);
           });
         }
 
         this.indexer.log.info(`extracted subtitles to ${ output }`);
-        return callback(output);
+        return this.extractSubtitlesText(output, callback);
       });
     }
     const existing = file.replace(/([^./]+)$/, this.indexer.config.video.subtitleFormat);
@@ -375,9 +376,57 @@ class Video {
         }
 
         this.indexer.log.info(`existing subtitles copied to ${ output }`);
-        return callback(output);
+        return this.extractSubtitlesText(output, callback);
       });
     });
+  }
+
+  extractSubtitlesText (file, callback) {
+    const data = [];
+
+    return fs.createReadStream(file).
+      pipe(subtitle.parse()).
+      on('data', node => {
+        if (node.data && node.data.text) {
+          data.push(node.data.text);
+        }
+      }).
+      on('error', (error) => {
+        this.indexer.log.error('error parsing subtitles');
+        this.indexer.log.error(error);
+
+        return callback(false);
+      }).
+      on('finish', () => {
+        const text = data.join('\n');
+        this.indexer.log.info(`parsed subtitles into text (${ text.length })`);
+        return callback(file, text);
+      });
+  }
+
+  async indexSubtitles (model, text, callback) {
+    if (!model.subtitles || !text) {
+      return setImmediate(callback);
+    }
+
+    this.indexer.log.info(`indexing subtitles for ${ model.id }`);
+
+    await this.indexer.elastic.client.index({
+      index: 'subtitles',
+      body: {
+        id: model.id,
+        name: model.name,
+        text,
+      },
+    });
+
+    this.indexer.log.info(`subtitles indexed for ${ model.id }`);
+
+    await this.indexer.elastic.client.indices.refresh();
+
+    this.indexer.log.info('elasticsearch indices refreshed');
+
+    return callback(null);
   }
 
   converter ({ file, slot }, callback) {
@@ -531,7 +580,7 @@ class Video {
                 file,
                 details,
                 output: join(directory, `${ filename }.${ this.indexer.config.video.subtitleFormat }`),
-              }, (subtitles) => {
+              }, (subtitles, subtitlesText) => {
                 const convertArgs = this.indexer.config.video.convert.
                   trim().
                   split(/\s+/).
@@ -683,23 +732,29 @@ class Video {
 
                                 this.indexer.log.info(`inserting ${ name } (${ id }) into db`);
 
-                                return this.indexer.database.media.insertOne(model, (error) => {
+                                return this.indexSubtitles(model, subtitlesText, (error) => {
                                   if (error) {
                                     return callback(error);
                                   }
 
-                                  this.indexer.log.info(`inserted ${ name } (${ id }) into db`);
-                                  return this.delete(file, (error) => {
+                                  return this.indexer.database.media.insertOne(model, (error) => {
                                     if (error) {
                                       return callback(error);
                                     }
 
-                                    this.indexer.stats.converted++;
+                                    this.indexer.log.info(`inserted ${ name } (${ id }) into db`);
+                                    return this.delete(file, (error) => {
+                                      if (error) {
+                                        return callback(error);
+                                      }
 
-                                    slot.spinner.stop();
-                                    this.indexer.progress.value++;
-                                    this.indexer.tokens.processed++;
-                                    return callback(null, model);
+                                      this.indexer.stats.converted++;
+
+                                      slot.spinner.stop();
+                                      this.indexer.progress.value++;
+                                      this.indexer.tokens.processed++;
+                                      return callback(null, model);
+                                    });
                                   });
                                 });
                               });
