@@ -23,10 +23,13 @@ function Database (indexer) {
         {
           key: { id: 1 },
           unique: true,
-        }, { key: { sources: 1 } }, {
+        },
+        { key: { sources: 1 } },
+        {
           key: {
-            name: 'text',
-            description: 'text',
+            'name': 'text',
+            'description': 'text',
+            'metadata.occurrences.name': 'text',
           },
         },
       ], (error) => {
