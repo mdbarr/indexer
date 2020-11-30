@@ -40,8 +40,13 @@ function Database (indexer, options) {
           {
             key: {
               'name': 'text',
-              'description': 'text',
               'metadata.occurrences.name': 'text',
+              'description': 'text',
+            },
+            weights: {
+              'name': 10,
+              'metadata.occurrences.name': 5,
+              'description': 1,
             },
           },
         ], (error) => {
