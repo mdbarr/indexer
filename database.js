@@ -2,7 +2,14 @@
 
 const { MongoClient } = require('mongodb');
 
-function Database (indexer) {
+function Database (indexer, options) {
+  const dropIndex = (callback) => {
+    if (options.dropIndex || options.dropIndexes) {
+      return this.media.dropIndexes(callback);
+    }
+    return setImmediate(callback);
+  };
+
   this.start = (callback) => {
     this.client = new MongoClient(indexer.config.database.url, {
       useNewUrlParser: true,
@@ -19,26 +26,32 @@ function Database (indexer) {
 
       this.media = this.db.collection(indexer.config.database.collection);
 
-      return this.media.createIndexes([
-        {
-          key: { id: 1 },
-          unique: true,
-        },
-        { key: { sources: 1 } },
-        {
-          key: {
-            'name': 'text',
-            'description': 'text',
-            'metadata.occurrences.name': 'text',
-          },
-        },
-      ], (error) => {
+      return dropIndex((error) => {
         if (error) {
           return callback(error);
         }
 
-        indexer.log.info(`Database successfully connected to ${ indexer.config.database.url }`);
-        return callback(null);
+        return this.media.createIndexes([
+          {
+            key: { id: 1 },
+            unique: true,
+          },
+          { key: { sources: 1 } },
+          {
+            key: {
+              'name': 'text',
+              'description': 'text',
+              'metadata.occurrences.name': 'text',
+            },
+          },
+        ], (error) => {
+          if (error) {
+            return callback(error);
+          }
+
+          indexer.log.info(`Database successfully connected to ${ indexer.config.database.url }`);
+          return callback(null);
+        });
       });
     });
   };
@@ -46,4 +59,4 @@ function Database (indexer) {
   this.stop = (callback) => this.client.close(callback);
 }
 
-module.exports = (indexer) => new Database(indexer);
+module.exports = (indexer, options) => new Database(indexer, options);
