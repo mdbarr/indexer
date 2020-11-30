@@ -19,8 +19,8 @@ class Indexer {
     this.config = utils.merge(defaults, options);
     this.log = logger(this.config.logs);
 
-    this.database = require('./database')(this);
-    this.elastic = require('./elastic')(this);
+    this.database = require('./database')(this, options);
+    this.elastic = require('./elastic')(this, options);
 
     this.video = new Video(this);
 
