@@ -11,6 +11,8 @@ const { ProgressBar, Spinner } = require('barrkeep/progress');
 
 const durationRegExp = /Duration:\s(\d+:\d+:\d+\.\d+)/;
 const timeRegExp = /time=(\d+:\d+:\d+\.\d+)/;
+const maxVolumeRegExp = /max_volume: ([-.\d]+) dB/;
+const meanVolumeRegExp = /mean_volume: ([-.\d]+) dB/;
 
 function timeToValue (string) {
   const parts = string.split(/:/);
@@ -319,7 +321,25 @@ class Video {
         return callback(soundInfo);
       }
 
-      const sound = !soundInfo.includes('mean_volume: -91');
+      const sound = {
+        silent: true,
+        mean: -91,
+        max: -91,
+      };
+
+      if (maxVolumeRegExp.test(soundInfo)) {
+        const [ , level ] = soundInfo.match(maxVolumeRegExp);
+        sound.max = Number(level);
+      }
+
+      if (meanVolumeRegExp.test(soundInfo)) {
+        const [ , level ] = soundInfo.match(meanVolumeRegExp);
+        sound.mean = Number(level);
+      }
+
+      if (sound.mean > this.indexer.config.video.soundThreshold) {
+        sound.silent = false;
+      }
 
       this.indexer.log.info(`sound in ${ file }: ${ sound }`);
 
