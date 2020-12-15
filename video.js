@@ -314,7 +314,7 @@ class Video {
     const soundArgs = this.indexer.config.video.sound.
       trim().
       split(/\s+/).
-      map((arg) => arg.replace('$file', file).replace('$duration', this.indexer.config.video.soundDuration));
+      map((arg) => arg.replace('$file', file));
 
     return execFile(this.indexer.config.video.ffmpeg, soundArgs, (error, stdout, soundInfo) => {
       if (error) {
