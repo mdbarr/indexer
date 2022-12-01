@@ -4,12 +4,12 @@ module.exports = {
   root: true,
   'parser': 'espree',
   'parserOptions': {
-    'ecmaVersion': 9,
+    'ecmaVersion': 13,
     'sourceType': 'script',
   },
   env: {
+    es2022: true,
     node: true,
-    es6: true,
     jest: true,
   },
   rules: {
