@@ -5,6 +5,21 @@ const { join } = require('path');
 
 const version = require('./package.json').version;
 
+const tagger = async (model, config) => {
+  if (config.dropTags) {
+    model.metadata.tags = [];
+  }
+
+  if (Array.isArray(model.metadata.tags) && model.metadata.tags.length === 0) {
+    model.metadata.tags.push('untagged');
+  }
+
+  return model;
+};
+
+const save = join(os.tmpdir(), 'indexer');
+const shasum = '/usr/bin/md5sum';
+
 module.exports = {
   name: `Indexer v${ version }`,
   version,
@@ -12,6 +27,7 @@ module.exports = {
   types: {
     image: {
       pattern: /\.(gif|png|jpeg|jpg|tiff)$/i,
+      exclude: /thumbs/i,
       enabled: false,
     },
     text: {
@@ -33,8 +49,32 @@ module.exports = {
   concurrency: 2,
   rescan: 3600000,
   persistent: false,
+  image: {
+    shasum,
+    identify: '/usr/bin/identify',
+    convert: '/usr/bin/convert',
+    resize: '$input -thumbnail $geometry $output',
+    thumbnail: {
+      format: 'png',
+      width: 320,
+      height: 180,
+    },
+    save,
+    delete: false,
+    canSkip: true,
+    dropTags: false,
+    tagger,
+  },
+  text: {
+    shasum,
+    compress: true,
+    delete: false,
+    canSkip: true,
+    dropTags: false,
+    tagger,
+  },
   video: {
-    shasum: '/usr/bin/md5sum',
+    shasum,
     ffmpeg: '/usr/bin/ffmpeg',
     convert: '-i $input -f $format -vcodec h264 -acodec aac -pix_fmt yuv420p -profile:v' +
       ' baseline -level 3 -vsync 1 -r $framerate -avoid_negative_ts 1 -fflags +genpts' +
@@ -57,22 +97,12 @@ module.exports = {
     previewDuration: 30,
     ffprobe: '/usr/bin/ffprobe',
     probe: '-v quiet -print_format json -show_format -show_streams -print_format json $file',
-    save: join(os.tmpdir(), 'indexer'),
+    save,
     checkSound: true,
     delete: false,
     canSkip: true,
     dropTags: false,
-    tagger: async (model, config) => {
-      if (config.dropTags) {
-        model.metadata.tags = [];
-      }
-
-      if (Array.isArray(model.metadata.tags) && model.metadata.tags.length === 0) {
-        model.metadata.tags.push('untagged');
-      }
-
-      return model;
-    },
+    tagger,
   },
   logs: {
     combined: join(process.cwd(), 'indexer.log'),
