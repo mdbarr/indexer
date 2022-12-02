@@ -31,14 +31,14 @@ function Database (indexer, options) {
       { key: { sources: 1 } },
       {
         key: {
-          'name': 'text',
+          name: 'text',
           'metadata.occurrences.name': 'text',
-          'description': 'text',
+          description: 'text',
         },
         weights: {
-          'name': 10,
+          name: 10,
           'metadata.occurrences.name': 5,
-          'description': 1,
+          description: 1,
         },
       },
     ]);

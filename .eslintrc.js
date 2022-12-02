@@ -2,10 +2,10 @@
 
 module.exports = {
   root: true,
-  'parser': 'espree',
-  'parserOptions': {
-    'ecmaVersion': 13,
-    'sourceType': 'script',
+  parser: 'espree',
+  parserOptions: {
+    ecmaVersion: 13,
+    sourceType: 'script',
   },
   env: {
     es2022: true,
@@ -28,7 +28,6 @@ module.exports = {
     'comma-style': [ 'error', 'last' ],
     'consistent-return': 'error',
     'constructor-super': 'error',
-    'curly': 'error',
     'dot-location': [ 'error', 'object' ],
     'dot-notation': 'error',
     'eol-last': 'error',
@@ -130,13 +129,13 @@ module.exports = {
     'no-with': 'error',
     'object-curly-newline': [
       'error', {
-        'ObjectExpression': {
+        ObjectExpression: {
           multiline: true,
           minProperties: 2,
         },
-        'ObjectPattern': { minProperties: 3 },
-        'ImportDeclaration': { minProperties: 3 },
-        'ExportDeclaration': {
+        ObjectPattern: { minProperties: 3 },
+        ImportDeclaration: { minProperties: 3 },
+        ExportDeclaration: {
           multiline: true,
           minProperties: 3,
         },
@@ -155,6 +154,7 @@ module.exports = {
     'prefer-rest-params': 'error',
     'prefer-spread': 'error',
     'prefer-template': 'error',
+    'quote-props': [ 'error', 'as-needed' ],
     quotes: [ 'error', 'single', { avoidEscape: true } ],
     radix: [ 'error', 'always' ],
     'require-yield': 'error',
