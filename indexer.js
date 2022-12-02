@@ -35,7 +35,7 @@ class Indexer {
 
     this.slots = new Array(this.config.concurrency);
 
-    this.queue = async.queue((file, callback) => {
+    this.queue = async.queue(async ({ type, file }) => {
       const slot = {};
 
       for (let index = 0; index < this.slots.length; index++) {
@@ -47,36 +47,30 @@ class Indexer {
       }
       slot.y = 5 + slot.index * 2;
 
-      return this.video.converter({
-        file,
-        slot,
-      }, (error) => {
-        this.slots[slot.index] = false;
-        if (slot.spinner && slot.spinner.stop) {
-          slot.spinner.stop();
+      try {
+        switch (type) {
+          case 'video':
+            await this.video.converter({
+              file,
+              slot,
+            });
+            break;
         }
-
-        if (slot.progress && slot.progress.done) {
-          slot.progress.done();
-        }
-
-        return callback(error);
-      });
-    }, this.config.concurrency);
-
-    this.queue.error((error, task) => {
-      this.log.error(`error in processing ${ task }`);
-      if (error) {
+      } catch (error) {
+        this.log.error(`error in processing ${ type } ${ file }:`);
         this.log.error(error.toString());
+        this.stats.failed++;
       }
 
-      this.stats.failed++;
+      this.slots[slot.index] = false;
+      slot?.spinner?.stop();
+      slot?.progress?.done();
 
       if (this.progress) {
-        this.progress.total--;
+        this.progress.value++;
         this.tokens.processed++;
       }
-    });
+    }, this.config.concurrency);
 
     process.on('SIGINT', () => {
       console.log('\x1b[H\x1b[2J\x1b[?25hCanceled.');
@@ -91,7 +85,7 @@ class Indexer {
       processed: 0,
     };
   }
-  scan (callback) {
+  async scan () {
     this.log.info('scanning...');
 
     this.progress = new ProgressBar({
@@ -120,7 +114,10 @@ class Indexer {
           this.progress.total++;
         }
         this.tokens.files++;
-        this.queue.push(event.data.path);
+        this.queue.push({
+          type: 'video',
+          file: event.data.path,
+        });
       }
     });
 
@@ -133,20 +130,18 @@ class Indexer {
       }, this.config.rescan);
     }
 
-    return this.queue.drain(() => {
-      if (!this.config.persistent) {
-        if (this.rescanner) {
-          clearInterval(this.rescanner);
-        }
-        if (this.progress) {
-          this.progress.done();
-        }
-        console.log('\x1b[H\x1b[2J\x1b[?25hDone.');
-        this.printStats();
-        return callback();
+    await this.queue.drain();
+
+    if (!this.config.persistent) {
+      if (this.rescanner) {
+        clearInterval(this.rescanner);
       }
-      return false;
-    });
+      if (this.progress) {
+        this.progress.done();
+      }
+      console.log('\x1b[H\x1b[2J\x1b[?25hDone.');
+      this.printStats();
+    }
   }
 
   printStats () {
@@ -158,24 +153,14 @@ class Indexer {
     }
   }
 
-  start (callback) {
-    callback = utils.callback(callback);
-
+  async start () {
     console.log(`\x1b[H\x1b[2J\n${ this.config.name } starting up...`);
 
-    return async.parallel([ this.database.start, this.elastic.start ], (error) => {
-      if (error) {
-        return callback(error);
-      }
+    await async.parallel([ this.database.start, this.elastic.start ]);
 
-      return this.scan((error) => {
-        if (error) {
-          return callback(error);
-        }
+    await this.scan();
 
-        return this.database.stop(callback);
-      });
-    });
+    await this.database.stop();
   }
 }
 

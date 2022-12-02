@@ -3,65 +3,50 @@
 const { MongoClient } = require('mongodb');
 
 function Database (indexer, options) {
-  const dropIndex = (callback) => {
+  const dropIndex = async () => {
     if (options.dropIndex || options.dropIndexes) {
-      return this.media.dropIndexes(callback);
+      await this.media.dropIndexes();
     }
-    return setImmediate(callback);
   };
 
-  this.start = (callback) => {
+  this.start = async () => {
     this.client = new MongoClient(indexer.config.database.url, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
 
     indexer.log.info(`Database connecting to ${ indexer.config.database.url }...`);
-    return this.client.connect((error) => {
-      if (error) {
-        return callback(error);
-      }
+    await this.client.connect();
+    this.db = this.client.db();
 
-      this.db = this.client.db();
+    this.media = this.db.collection(indexer.config.database.collection);
 
-      this.media = this.db.collection(indexer.config.database.collection);
+    await dropIndex();
 
-      return dropIndex((error) => {
-        if (error) {
-          return callback(error);
-        }
+    await this.media.createIndexes([
+      {
+        key: { id: 1 },
+        unique: true,
+      },
+      { key: { sources: 1 } },
+      {
+        key: {
+          'name': 'text',
+          'metadata.occurrences.name': 'text',
+          'description': 'text',
+        },
+        weights: {
+          'name': 10,
+          'metadata.occurrences.name': 5,
+          'description': 1,
+        },
+      },
+    ]);
 
-        return this.media.createIndexes([
-          {
-            key: { id: 1 },
-            unique: true,
-          },
-          { key: { sources: 1 } },
-          {
-            key: {
-              'name': 'text',
-              'metadata.occurrences.name': 'text',
-              'description': 'text',
-            },
-            weights: {
-              'name': 10,
-              'metadata.occurrences.name': 5,
-              'description': 1,
-            },
-          },
-        ], (error) => {
-          if (error) {
-            return callback(error);
-          }
-
-          indexer.log.info(`Database successfully connected to ${ indexer.config.database.url }`);
-          return callback(null);
-        });
-      });
-    });
+    indexer.log.info(`Database successfully connected to ${ indexer.config.database.url }`);
   };
 
-  this.stop = (callback) => this.client.close(callback);
+  this.stop = async () => await this.client.close();
 }
 
 module.exports = (indexer, options) => new Database(indexer, options);

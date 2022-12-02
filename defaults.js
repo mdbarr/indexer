@@ -11,7 +11,7 @@ module.exports = {
   scan: process.cwd(),
   types: {
     image: {
-      pattern: /\.(gif|png|jepg|jpg|tiff)$/i,
+      pattern: /\.(gif|png|jpeg|jpg|tiff)$/i,
       enabled: false,
     },
     text: {
@@ -49,7 +49,7 @@ module.exports = {
     thumbnailFormat: 'png',
     thumbnailTime: 5,
     thumbnail: '-i $output -ss 00:00:$time -vframes 1 $thumbnail -y',
-    sound: '-t $duration -i $file -af volumedetect -f null -max_muxing_queue_size 99999 /dev/null',
+    sound: '-i $file -af volumedetect -f null -max_muxing_queue_size 99999 /dev/null',
     soundThreshold: -90,
     preview: '-i $input -an -max_muxing_queue_size 99999 -vcodec libx264 -pix_fmt yuv420p' +
       " -profile:v baseline -level 3 -vf select='lt(mod(t,$interval),1)'," +
@@ -62,7 +62,7 @@ module.exports = {
     delete: false,
     canSkip: true,
     dropTags: false,
-    tagger: (model, config, callback) => {
+    tagger: async (model, config) => {
       if (config.dropTags) {
         model.metadata.tags = [];
       }
@@ -71,7 +71,7 @@ module.exports = {
         model.metadata.tags.push('untagged');
       }
 
-      setImmediate(callback, null, model);
+      return model;
     },
   },
   logs: {

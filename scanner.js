@@ -1,6 +1,6 @@
 'use strict';
 
-const fs = require('fs');
+const fs = require('fs/promises');
 const async = require('async');
 const { join } = require('path');
 const logger = require('./logger');
@@ -24,7 +24,7 @@ class Scanner extends EventBus {
 
     //////////
 
-    this.queue = async.queue((data, done) => {
+    this.queue = async.queue(async (data) => {
       const { directory, depth } = data;
 
       if (depth > maxDepth) {
@@ -33,99 +33,88 @@ class Scanner extends EventBus {
 
       if (this.seen.has(directory)) {
         this.log.info(`scanner: skipping seen directory ${ directory }`);
-        return done();
+        return;
       }
 
       this.seen.add(directory);
       this.stats.directories++;
 
       this.log.info(`scanner: scanning ${ directory }`);
-      return fs.readdir(directory, { withFileTypes: true }, (error, entries) => {
-        if (error) {
-          return done(error);
+      const entries = await fs.readdir(directory, { withFileTypes: true });
+
+      if (sort) {
+        entries.sort((a, b) => {
+          if (a.name < b.name) {
+            return -1;
+          } else if (a.name > b.name) {
+            return 1;
+          }
+          return 0;
+        });
+      }
+
+      await async.each(entries, async (entry) => {
+        if (dotfiles === false && entry.name.startsWith('.')) {
+          this.log.verbose(`scanner: skipping dotfile ${ directory }/${ entry.name }`);
+          return;
         }
 
-        if (sort) {
-          entries.sort((a, b) => {
-            if (a.name < b.name) {
-              return -1;
-            } else if (a.name > b.name) {
-              return 1;
-            }
-            return 0;
-          });
+        if (entry.isDirectory()) {
+          if (!recursive) {
+            this.log.verbose(`scanner: not recursivelt scanning ${ directory }/${ entry.name }`);
+            return;
+          }
+
+          if (entry.isSymbolicLink() && !followSymlinks) {
+            this.log.verbose(`scanner: skipping symlink ${ directory }/${ entry.name }`);
+            return;
+          }
         }
 
-        return async.each(entries, (entry, next) => {
-          if (dotfiles === false && entry.name.startsWith('.')) {
-            this.log.verbose(`scanner: skipping dotfile ${ directory }/${ entry.name }`);
-            return next();
+        const path = await this.realpath(directory, entry);
+        if (this.seen.has(path)) {
+          this.log.info(`scanner: skipping seen entry ${ path }`);
+          return;
+        }
+
+        if (entry.isDirectory()) {
+          if (exclude && anymatch(exclude, path)) {
+            this.log.verbose(`scanner: excluding ${ path }`);
+            return;
           }
 
-          if (entry.isDirectory()) {
-            if (!recursive) {
-              this.log.verbose(`scanner: not recursivelt scanning ${ directory }/${ entry.name }`);
-              return next();
-            }
-
-            if (entry.isSymbolicLink() && !followSymlinks) {
-              this.log.verbose(`scanner: skipping symlink ${ directory }/${ entry.name }`);
-              return next();
-            }
-          }
-
-          return this.realpath(directory, entry, (error, path) => {
-            if (error) {
-              return next(error);
-            }
-
-            if (this.seen.has(path)) {
-              this.log.info(`scanner: skipping seen entry ${ path }`);
-              return next();
-            }
-
-            if (entry.isDirectory()) {
-              if (exclude && anymatch(exclude, path)) {
-                this.log.verbose(`scanner: excluding ${ path }`);
-                return next();
-              }
-
-              this.log.info(`scanner: queueing directory ${ path }`);
-              this.queue.push({
-                directory: path,
-                depth: depth + 1,
-              });
-            } else if (entry.isFile()) {
-              let kind = 'unknown';
-
-              for (const type in types) {
-                if (types[type].enabled && anymatch(types[type].pattern, path)) {
-                  kind = type;
-                  break;
-                }
-              }
-
-              if (kind === 'unknown') {
-                this.log.verbose(`scanner: excluding unknown type ${ path }`);
-                return next();
-              }
-
-              this.seen.add(path);
-              this.stats.files++;
-
-              this.emit({
-                type: `file:${ kind }`,
-                data: {
-                  index: this.stats.files,
-                  type: kind,
-                  path,
-                },
-              });
-              return next();
-            }
-            return next();
+          this.log.info(`scanner: queueing directory ${ path }`);
+          this.queue.push({
+            directory: path,
+            depth: depth + 1,
           });
-        }, (error) => done(error));
+        } else if (entry.isFile()) {
+          let kind = 'unknown';
+
+          for (const type in types) {
+            if (types[type].enabled && anymatch(types[type].pattern, path)) {
+              kind = type;
+              break;
+            }
+          }
+
+          if (kind === 'unknown') {
+            this.log.verbose(`scanner: excluding unknown type ${ path }`);
+            return;
+          }
+
+          this.seen.add(path);
+          this.stats.files++;
+
+          this.emit({
+            type: `file:${ kind }`,
+            data: {
+              index: this.stats.files,
+              type: kind,
+              path,
+            },
+          });
+        }
       });
     }, concurrency);
 
@@ -139,26 +128,21 @@ class Scanner extends EventBus {
     });
   }
 
-  add (directories, depth = 0) {
+  async add (directories, depth = 0) {
     if (!Array.isArray(directories)) {
       directories = [ directories ];
     }
 
-    return async.each(directories, (directory, next) => fs.realpath(directory, (error, path) => {
-      if (error) {
-        this.log.error(`scanner: failed to find path of ${ directory }`);
-        this.log.error(error.toString());
-        return next();
-      }
+    await async.each(directories, async (directory) => {
+      const path = await fs.realpath(directory);
 
       this.log.info(`scanner: adding directory ${ directory }`);
+
       this.queue.push({
         directory: path,
         depth,
       });
-
-      return next();
-    }));
+    });
   }
 
   clear () {
@@ -174,13 +158,13 @@ class Scanner extends EventBus {
     return this.queue.idle();
   }
 
-  realpath (directory, entry, callback) {
+  async realpath (directory, entry) {
     const relative = join(directory, entry.name);
 
     if (entry.isSymbolicLink()) {
-      return fs.realpath(relative, callback);
+      return await fs.realpath(relative);
     }
-    return setImmediate(() => callback(null, relative));
+    return relative;
   }
 }
 
