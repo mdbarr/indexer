@@ -5,15 +5,21 @@ const async = require('async');
 const { join } = require('path');
 const logger = require('./logger');
 const anymatch = require('anymatch');
-const { EventBus } = require('@hyperingenuity/events');
 
-class Scanner extends EventBus {
+class Scanner {
   constructor ({
-    types, exclude, concurrency = 1, recursive = true, dotfiles = false,
-    sort = false, maxDepth = 25, followSymlinks = true, logs,
-  } = {}, log) {
-    super();
-
+    concurrency = 1,
+    dotfiles = false,
+    eventbus,
+    exclude,
+    followSymlinks = true,
+    log,
+    logs,
+    maxDepth = 25,
+    recursive = true,
+    sort = false,
+    types,
+  } = {}) {
     this.log = log || logger(logs);
     this.seen = new Set();
 
@@ -106,7 +112,7 @@ class Scanner extends EventBus {
           this.seen.add(path);
           this.stats.files++;
 
-          this.emit({
+          eventbus.emit({
             type: `file:${ kind }`,
             data: {
               index: this.stats.files,

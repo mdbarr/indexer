@@ -8,14 +8,17 @@ const Scanner = require('./scanner');
 const utils = require('barrkeep/utils');
 const style = require('barrkeep/style');
 const { ProgressBar } = require('barrkeep/progress');
+const { EventBus } = require('@hyperingenuity/events');
 
 const Video = require('./video');
 const defaults = require('./defaults');
 
 //////////
 
-class Indexer {
+class Indexer extends EventBus {
   constructor (options = {}) {
+    super();
+
     this.config = utils.merge(defaults, options);
     this.log = logger(this.config.logs);
 
@@ -85,6 +88,7 @@ class Indexer {
       processed: 0,
     };
   }
+
   async scan () {
     this.log.info('scanning...');
 
@@ -104,9 +108,13 @@ class Indexer {
     });
 
     this.seen = new Set();
-    this.scanner = new Scanner(this.config, this.log);
+    this.scanner = new Scanner({
+      eventbus: this,
+      log: this.log,
+      ...this.config,
+    });
 
-    this.scanner.on('file:video', (event) => {
+    this.on('file:video', (event) => {
       if (!this.seen.has(event.data.path)) {
         this.seen.add(event.data.path);
 
@@ -157,9 +165,9 @@ class Indexer {
     console.log(`\x1b[H\x1b[2J\n${ this.config.name } starting up...`);
 
     await async.parallel([ this.database.start, this.elastic.start ]);
+  }
 
-    await this.scan();
-
+  async stop () {
     await this.database.stop();
   }
 }

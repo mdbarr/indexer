@@ -637,7 +637,7 @@ class Video {
 
     slot.spinner.stop();
 
-    this.stats.converted++;
+    this.indexer.stats.converted++;
   }
 }
 
