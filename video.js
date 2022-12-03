@@ -42,30 +42,12 @@ function hasSubtitles (details) {
 class Video {
   constructor (indexer) {
     this.indexer = indexer;
-    this.config = indexer.config;
+    this.config = indexer.config.video;
 
-    if (typeof this.indexer.config.video.tagger === 'function') {
-      this.tagger = this.indexer.config.video.tagger;
-    }
-
-    if (typeof this.indexer.config.video.delete === 'function') {
-      this.shouldDelete = this.indexer.config.video.delete;
-    } else {
-      this.shouldDelete = () => this.indexer.config.video.delete;
-    }
+    this.common = require('./common')(indexer, this.config);
   }
 
-  async tag (model) {
-    if (!this.tagger) {
-      return model;
-    }
-
-    this.indexer.log.info(`tagging ${ model.name }`);
-
-    await this.tagger(model, this.indexer.config);
-    model.metadata.updated = Date.now();
-    return model;
-  }
+  //////////
 
   model ({
     id, hash, occurrence, occurrences, output, converted,
@@ -112,10 +94,10 @@ class Video {
       description: '',
       hash,
       sources: Array.from(sources),
-      relative: output.replace(this.indexer.config.video.save, '').replace(/^\//, ''),
-      thumbnail: thumbnail.replace(this.indexer.config.video.save, '').replace(/^\//, ''),
-      preview: preview.replace(this.indexer.config.video.save, '').replace(/^\//, ''),
-      subtitles: subtitles ? subtitles.replace(this.indexer.config.video.save, '').replace(/^\//, '') : false,
+      relative: output.replace(this.config.save, '').replace(/^\//, ''),
+      thumbnail: thumbnail.replace(this.config.save, '').replace(/^\//, ''),
+      preview: preview.replace(this.config.save, '').replace(/^\//, ''),
+      subtitles: subtitles ? subtitles.replace(this.config.save, '').replace(/^\//, '') : false,
       size: converted.size,
       duration,
       aspect,
@@ -141,62 +123,7 @@ class Video {
     return model;
   }
 
-  async lookup (id) {
-    return this.indexer.database.media.findOne({
-      $or: [
-        {
-          sources: id,
-          deleted: { $ne: true },
-        }, { sources: id }, { id }, { hash: id },
-      ],
-    });
-  }
-
-  async skipFile (file) {
-    if (this.indexer.config.video.canSkip && !this.shouldDelete(file)) {
-      const item = await this.indexer.database.media.findOne({ 'metadata.occurrences.file': file });
-      return Boolean(item);
-    }
-    return false;
-  }
-
-  async duplicate (model, occurrence) {
-    this.indexer.log.info(`updating metadata for ${ model.id }`);
-    this.indexer.stats.duplicates++;
-
-    let found = false;
-    for (const item of model.metadata.occurrences) {
-      if (item.file === occurrence.file) {
-        found = true;
-        break;
-      }
-    }
-    if (found) {
-      this.indexer.log.info(`existing occurrence found for ${ occurrence.file }`);
-    } else {
-      model.metadata.occurrences.push(occurrence);
-    }
-
-    const sources = new Set([ model.id, model.hash ]);
-    sources.add(occurrence.id);
-    if (Array.isArray(model.metadata.occurrences)) {
-      for (const item of model.metadata.occurrences) {
-        sources.add(item.id);
-      }
-    }
-    model.sources = Array.from(sources);
-
-    this.indexer.log.info(`updating tags for ${ occurrence.id }`);
-    const update = await this.tag(model);
-
-    await this.indexer.database.media.replaceOne({ id: model.id }, update);
-
-    this.indexer.log.info(`metadata updated for ${ model.id }`);
-
-    await this.delete(occurrence.file);
-
-    return update;
-  }
+  //////////
 
   async examine (file) {
     this.indexer.log.info(`examining ${ file }`);
@@ -204,19 +131,19 @@ class Video {
 
     this.indexer.log.info(`probing detailed information for ${ file }`);
 
-    const probeArgs = this.indexer.config.video.probe.
+    const probeArgs = this.config.probe.
       trim().
       split(/\s+/).
       map((arg) => arg.replace('$file', file));
 
-    const { stdout } = await execFile(this.indexer.config.video.ffprobe, probeArgs);
+    const { stdout } = await execFile(this.config.ffprobe, probeArgs);
 
     const data = JSON.parse(stdout);
     return [ stat, data ];
   }
 
   async delete (file) {
-    if (this.shouldDelete(file)) {
+    if (this.common.shouldDelete(file)) {
       this.indexer.log.info(`deleting ${ file }`);
       await fs.unlink(file);
       this.indexer.log.info(`deleted ${ file }`);
@@ -224,19 +151,19 @@ class Video {
   }
 
   async preview (input, output, duration) {
-    const interval = Math.ceil(duration / this.indexer.config.video.previewDuration);
+    const interval = Math.ceil(duration / this.config.previewDuration);
 
-    const previewArgs = this.indexer.config.video.preview.
+    const previewArgs = this.config.preview.
       trim().
       split(/\s+/).
       map((arg) => arg.replace('$input', input).
         replace('$output', output).
-        replace('$framerate', this.indexer.config.video.framerate).
+        replace('$framerate', this.config.framerate).
         replace('$interval', interval));
 
     this.indexer.log.info(`generating preview video for ${ input }`);
 
-    await execFile(this.indexer.config.video.ffmpeg, previewArgs);
+    await execFile(this.config.ffmpeg, previewArgs);
     this.indexer.log.info(`generated preview video ${ output }`);
 
     return output;
@@ -249,17 +176,17 @@ class Video {
       max: -91,
     };
 
-    if (!this.indexer.config.video.checkSound) {
+    if (!this.config.checkSound) {
       return sound;
     }
 
     this.indexer.log.info(`checking for sound in ${ file }`);
-    const soundArgs = this.indexer.config.video.sound.
+    const soundArgs = this.config.sound.
       trim().
       split(/\s+/).
       map((arg) => arg.replace('$file', file));
 
-    const { stderr } = await execFile(this.indexer.config.video.ffmpeg, soundArgs);
+    const { stderr } = await execFile(this.config.ffmpeg, soundArgs);
 
     if (maxVolumeRegExp.test(stderr)) {
       const [ , level ] = stderr.match(maxVolumeRegExp);
@@ -271,7 +198,7 @@ class Video {
       sound.mean = Number(level);
     }
 
-    if (sound.mean > this.indexer.config.video.soundThreshold) {
+    if (sound.mean > this.config.soundThreshold) {
       sound.silent = false;
     }
 
@@ -284,24 +211,24 @@ class Video {
     file, details, output,
   }) {
     if (hasSubtitles(details)) {
-      let subtitleArgs = this.indexer.config.video.subtitle.
+      let subtitleArgs = this.config.subtitle.
         trim().
         split(/\s+/).
         map((arg) => arg.replace('$input', file).
           replace('$output', output).
-          replace('$language', this.indexer.config.video.subtitleLanguage));
+          replace('$language', this.config.subtitleLanguage));
 
-      const { error } = await safeExecFile(this.indexer.config.video.ffmpeg, subtitleArgs);
+      const { error } = await safeExecFile(this.config.ffmpeg, subtitleArgs);
       if (!error) {
         this.indexer.log.info(`extracted subtitles to ${ output }`);
       } else {
-        subtitleArgs = this.indexer.config.video.subtitleFallback.
+        subtitleArgs = this.config.subtitleFallback.
           trim().
           split(/\s+/).
           map((arg) => arg.replace('$input', file).
             replace('$output', output));
 
-        const { error } = await execFile(this.indexer.config.video.ffmpeg, subtitleArgs);
+        const { error } = await execFile(this.config.ffmpeg, subtitleArgs);
 
         if (error) {
           this.indexer.log.info(`failed to extract subtitles ${ error } ${ file } ${ output }`);
@@ -314,7 +241,7 @@ class Video {
       return text;
     }
 
-    const existing = file.replace(/([^./]+)$/, this.indexer.config.video.subtitleFormat);
+    const existing = file.replace(/([^./]+)$/, this.config.subtitleFormat);
 
     this.indexer.log.info(`checking for existing subtitles in ${ existing }`);
     const stats = await safeStat(existing);
@@ -378,7 +305,7 @@ class Video {
   }
 
   async converter ({ file, slot }) {
-    const skip = await this.skipFile(file);
+    const skip = await this.common.skipFile(file);
 
     if (skip) {
       this.indexer.log.info(`skipping file due to existing entry ${ file }`);
@@ -388,39 +315,9 @@ class Video {
 
     const [ , name, extension ] = file.match(/([^/]+)\.([^.]+)$/);
 
-    const nameWidth = 25;
-    let scrollStart = 0;
+    const scrollName = this.common.nameScroller(name, extension);
+
     let slow = 0;
-
-    let scrollFormat;
-
-    const scrollName = (format) => {
-      if (format) {
-        scrollFormat = format;
-        scrollStart = 0;
-      }
-
-      let shortName = `${ name }.${ extension }`.replace(/[^\x00-\x7F]/g, '');
-      if (shortName.length > 25) {
-        shortName = shortName.substring(scrollStart, scrollStart + nameWidth);
-
-        if (scrollStart < 0) {
-          shortName = shortName.padStart(25, ' ');
-        } else {
-          shortName = shortName.padEnd(25, ' ');
-        }
-      }
-      const prettyShortName = style(shortName, 'style: bold');
-      const result = scrollFormat.replace('$name', prettyShortName);
-
-      if (/^\s+$/.test(shortName)) {
-        scrollStart = nameWidth * -1 + 1;
-      } else {
-        scrollStart++;
-      }
-
-      return result;
-    };
 
     slot.spinner = new Spinner({
       prepend: scrollName('  Fingerprinting $name '),
@@ -439,7 +336,7 @@ class Video {
     };
 
     this.indexer.log.info(`hashing ${ file }`);
-    const { stdout: sha } = await execFile(this.indexer.config.video.shasum, [ file ]);
+    const { stdout: sha } = await execFile(this.config.shasum, [ file ]);
     slot.spinner.stop();
 
     const [ id ] = sha.trim().split(/\s+/);
@@ -465,11 +362,11 @@ class Video {
     slot.id = id;
     slot.occurrences = [ occurrence ];
 
-    const item = await this.lookup(id);
+    const item = await this.common.lookup(id);
 
     if (item) {
       this.indexer.log.info(`match for ${ id } found`);
-      await this.duplicate(item, occurrence);
+      await this.common.duplicate(item, occurrence);
       return;
     }
 
@@ -482,11 +379,11 @@ class Video {
     occurrence.size = stat.size;
     occurrence.timestamp = new Date(stat.mtime).getTime();
 
-    const directory = join(this.indexer.config.video.save, id.substring(0, 2));
+    const directory = join(this.config.save, id.substring(0, 2));
     const filename = id.substring(2);
 
-    const output = join(directory, `${ filename }.${ this.indexer.config.video.format }`);
-    const preview = join(directory, `${ filename }p.${ this.indexer.config.video.format }`);
+    const output = join(directory, `${ filename }.${ this.config.format }`);
+    const preview = join(directory, `${ filename }p.${ this.config.format }`);
 
     await fs.mkdir(directory, { recursive: true });
 
@@ -511,21 +408,21 @@ class Video {
     const subtitles = await this.extractSubtitles({
       file,
       details,
-      output: join(directory, `${ filename }.${ this.indexer.config.video.subtitleFormat }`),
+      output: join(directory, `${ filename }.${ this.config.subtitleFormat }`),
     });
 
-    const convertArgs = this.indexer.config.video.convert.
+    const convertArgs = this.config.convert.
       trim().
       split(/\s+/).
       map((arg) => arg.replace('$input', file).
         replace('$output', output).
-        replace('$format', this.indexer.config.video.format).
-        replace('$framerate', this.indexer.config.video.framerate));
+        replace('$format', this.config.format).
+        replace('$framerate', this.config.framerate));
 
     this.indexer.log.info(`converting ${ name }.${ extension } in slot ${ slot.index }`);
 
     let log = '';
-    const code = await spawn(this.indexer.config.video.ffmpeg, convertArgs,
+    const code = await spawn(this.config.ffmpeg, convertArgs,
       { stdio: [ 'ignore', 'ignore', 'pipe' ] }, {
         stderr: (data) => {
           data = data.toString();
@@ -567,23 +464,23 @@ class Video {
     };
 
     this.indexer.log.info(`checking for duplicate of ${ output }`);
-    const { stdout: outputSha } = await execFile(this.indexer.config.video.shasum, [ output ]);
+    const { stdout: outputSha } = await execFile(this.config.shasum, [ output ]);
     const [ hash ] = outputSha.trim().split(/\s+/);
 
     this.indexer.log.info(`${ output } has id ${ hash }`);
 
-    const duplicate = await this.lookup(hash);
+    const duplicate = await this.common.lookup(hash);
     if (duplicate) {
       this.indexer.log.info(`match for converted ${ hash } found`);
-      await this.duplicate(duplicate, occurrence);
+      await this.common.duplicate(duplicate, occurrence);
       await safeUnlink(output);
       slot.spinner.stop();
       await safeRmdir(directory);
     }
     this.indexer.log.info(`no duplicates of ${ output } (${ hash }) found`);
 
-    const thumbnail = output.replace(this.indexer.config.video.format, this.indexer.config.video.thumbnailFormat);
-    let time = Math.floor(Math.min(this.indexer.config.video.thumbnailTime, Number(details.format.duration) - 1));
+    const thumbnail = output.replace(this.config.format, this.config.thumbnailFormat);
+    let time = Math.floor(Math.min(this.config.thumbnailTime, Number(details.format.duration) - 1));
 
     if (Number.isNaN(time) || time === Infinity || time < 0) {
       time = 0;
@@ -591,7 +488,7 @@ class Video {
 
     const timeString = time.toFixed(3).padStart(6, '0');
 
-    const thumbnailArgs = this.indexer.config.video.thumbnail.
+    const thumbnailArgs = this.config.thumbnail.
       trim().
       split(/\s+/).
       map((arg) => arg.replace('$output', output).
@@ -600,7 +497,7 @@ class Video {
 
     this.indexer.log.info(`generating thumbnail ${ thumbnail }`);
 
-    await execFile(this.indexer.config.video.ffmpeg, thumbnailArgs);
+    await execFile(this.config.ffmpeg, thumbnailArgs);
     this.indexer.log.info(`generated thumbnail ${ thumbnail } at ${ timeString }s`);
 
     const [ converted, info ] = await this.examine(output);
@@ -624,7 +521,7 @@ class Video {
       sound,
     });
 
-    await this.tag(model);
+    await this.common.tag(model);
 
     this.indexer.log.info(`inserting ${ name } (${ id }) into db`);
 

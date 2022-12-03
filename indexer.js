@@ -10,6 +10,7 @@ const style = require('barrkeep/style');
 const { ProgressBar } = require('barrkeep/progress');
 const { EventBus } = require('@hyperingenuity/events');
 
+const Image = require('./image');
 const Video = require('./video');
 const defaults = require('./defaults');
 
@@ -25,6 +26,7 @@ class Indexer extends EventBus {
     this.database = require('./database')(this, options);
     this.elastic = require('./elastic')(this, options);
 
+    this.image = new Image(this);
     this.video = new Video(this);
 
     this.stats = {
@@ -52,6 +54,12 @@ class Indexer extends EventBus {
 
       try {
         switch (type) {
+          case 'image':
+            await this.image.converter({
+              file,
+              slot,
+            });
+            break;
           case 'video':
             await this.video.converter({
               file,
@@ -62,6 +70,7 @@ class Indexer extends EventBus {
       } catch (error) {
         this.log.error(`error in processing ${ type } ${ file }:`);
         this.log.error(error.toString());
+        this.log.error(error.stack.toString());
         this.stats.failed++;
       }
 
@@ -114,7 +123,7 @@ class Indexer extends EventBus {
       ...this.config,
     });
 
-    this.on('file:video', (event) => {
+    this.on('file:*', (event) => {
       if (!this.seen.has(event.data.path)) {
         this.seen.add(event.data.path);
 
@@ -123,7 +132,7 @@ class Indexer extends EventBus {
         }
         this.tokens.files++;
         this.queue.push({
-          type: 'video',
+          type: event.data.type,
           file: event.data.path,
         });
       }

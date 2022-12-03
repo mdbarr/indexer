@@ -28,7 +28,7 @@ module.exports = {
     image: {
       pattern: /\.(gif|png|jpeg|jpg|tiff)$/i,
       exclude: /thumbs/i,
-      enabled: false,
+      enabled: true,
     },
     text: {
       pattern: /\.(md|text|txt)$/i,
@@ -36,7 +36,7 @@ module.exports = {
     },
     video: {
       pattern: /\.(asf|avi|divx|flv|mkv|mov|mpe?g|mp4|mts|m[14]v|ts|vob|webm|wmv|3gp)$/i,
-      enabled: true,
+      enabled: false,
     },
   },
   exclude: [ '**/node_modules/**' ],
@@ -53,7 +53,7 @@ module.exports = {
     shasum,
     identify: '/usr/bin/identify',
     convert: '/usr/bin/convert',
-    resize: '$input -thumbnail $geometry $output',
+    resize: '$input -thumbnail $geometry $thumbnail',
     thumbnail: {
       format: 'png',
       width: 320,
