@@ -3,6 +3,16 @@
 const style = require('barrkeep/style');
 
 function Common (indexer, config) {
+  this.configure = () => {
+    const keys = [ 'shasum', 'save', 'delete', 'canSkip', 'dropTags', 'tagger' ];
+
+    for (const key of keys) {
+      if (config[key] === undefined) {
+        config[key] = indexer.config[key];
+      }
+    }
+  };
+
   this.duplicate = async (model, occurrence) => {
     indexer.log.info(`updating metadata for ${ model.id }`);
     indexer.stats.duplicates++;

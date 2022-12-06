@@ -11,6 +11,7 @@ class Image {
     this.config = indexer.config.image;
 
     this.common = require('./common')(indexer, this.config);
+    this.common.configure();
   }
 
   //////////

@@ -11,6 +11,7 @@ class Text {
     this.config = indexer.config.text;
 
     this.common = require('./common')(indexer, this.config);
+    this.common.configure();
   }
 
   //////////
@@ -30,15 +31,6 @@ class Text {
 
     const timestamp = Date.now();
 
-    let compression = false;
-    if (this.config.compress && (this.config.format === 'br' || this.config.format === 'brotli')) {
-      output += '.br';
-      compression = 'brotli';
-    } else if (this.config.compress && (this.config.format === 'gz' || this.config.format === 'gzip')) {
-      output += '.gz';
-      compression = 'gzip';
-    }
-
     const model = {
       id,
       object: 'text',
@@ -49,7 +41,7 @@ class Text {
       sources: Array.from(sources),
       relative: output.replace(this.config.save, '').replace(/^\//, ''),
       size: stat.size,
-      compression,
+      compression: this.config.compression,
       metadata: {
         created: new Date(stat.mtime).getTime(),
         added: timestamp,
@@ -159,7 +151,12 @@ class Text {
     const directory = join(this.config.save, id.substring(0, 2));
     const filename = id.substring(2);
 
-    const output = join(directory, `${ filename }.${ extension }`);
+    let output = join(directory, `${ filename }.${ extension }`);
+    if (this.config.compression === 'brotli') {
+      output += '.br';
+    } else if (this.config.compression === 'gzip') {
+      output += '.gz';
+    }
 
     await fs.mkdir(directory, { recursive: true });
 
@@ -215,8 +212,6 @@ class Text {
     model.size = details.size;
 
     await this.indexer.database.media.insertOne(model);
-
-    this.indexer.log.info(JSON.stringify(model, null, 2));
 
     slot.spinner.stop();
 

@@ -45,6 +45,7 @@ class Video {
     this.config = indexer.config.video;
 
     this.common = require('./common')(indexer, this.config);
+    this.common.configure();
   }
 
   //////////

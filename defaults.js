@@ -5,25 +5,28 @@ const { join } = require('path');
 
 const version = require('./package.json').version;
 
-const tagger = async (model, config) => {
-  if (config.dropTags) {
-    model.metadata.tags = [];
-  }
-
-  if (Array.isArray(model.metadata.tags) && model.metadata.tags.length === 0) {
-    model.metadata.tags.push('untagged');
-  }
-
-  return model;
-};
-
-const save = join(os.tmpdir(), 'indexer');
-const shasum = '/usr/bin/md5sum';
-
 module.exports = {
   name: `Indexer v${ version }`,
   version,
+  // Default options, can be overridden in type config
   scan: process.cwd(),
+  shasum: '/usr/bin/md5sum',
+  save: join(os.tmpdir(), 'indexer'),
+  delete: false,
+  canSkip: true,
+  dropTags: false,
+  tagger: async (model, config) => {
+    if (config.dropTags) {
+      model.metadata.tags = [];
+    }
+
+    if (Array.isArray(model.metadata.tags) && model.metadata.tags.length === 0) {
+      model.metadata.tags.push('untagged');
+    }
+
+    return model;
+  },
+  // Types to process
   types: {
     image: {
       pattern: /\.(gif|png|jpeg|jpg|tiff)$/i,
@@ -36,11 +39,12 @@ module.exports = {
     },
     video: {
       pattern: /\.(asf|avi|divx|flv|mkv|mov|mpe?g|mp4|mts|m[14]v|ts|vob|webm|wmv|3gp)$/i,
-      enabled: false,
+      enabled: true,
     },
   },
   exclude: [ '**/node_modules/**' ],
   sort: false,
+  // Service configuration
   database: {
     url: 'mongodb://localhost:27017/indexer',
     collection: 'media',
@@ -49,8 +53,8 @@ module.exports = {
   concurrency: 2,
   rescan: 3600000,
   persistent: false,
+  // Type specific configuration
   image: {
-    shasum,
     identify: '/usr/bin/identify',
     convert: '/usr/bin/convert',
     resize: '$input -thumbnail $geometry $thumbnail',
@@ -59,25 +63,12 @@ module.exports = {
       width: 320,
       height: 180,
     },
-    save,
-    delete: false,
-    canSkip: true,
-    dropTags: false,
-    tagger,
   },
   text: {
-    shasum,
-    compress: true,
-    format: 'br',
-    save,
-    delete: false,
-    canSkip: true,
-    dropTags: false,
+    compression: 'brotli',
     processor: null,
-    tagger,
   },
   video: {
-    shasum,
     ffmpeg: '/usr/bin/ffmpeg',
     convert: '-i $input -f $format -vcodec h264 -acodec aac -pix_fmt yuv420p -profile:v' +
       ' baseline -level 3 -vsync 1 -r $framerate -avoid_negative_ts 1 -fflags +genpts' +
@@ -100,13 +91,9 @@ module.exports = {
     previewDuration: 30,
     ffprobe: '/usr/bin/ffprobe',
     probe: '-v quiet -print_format json -show_format -show_streams -print_format json $file',
-    save,
     checkSound: true,
-    delete: false,
-    canSkip: true,
-    dropTags: false,
-    tagger,
   },
+  // Logging
   logs: {
     combined: join(process.cwd(), 'indexer.log'),
     error: join(process.cwd(), 'error.log'),
