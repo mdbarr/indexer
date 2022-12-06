@@ -1,9 +1,26 @@
 'use strict';
 
-const fs = require('fs/promises');
 const util = require('node:util');
+const zlib = require('node:zlib');
+const crypto = require('node:crypto');
+const fs = require('node:fs/promises');
 const childProcess = require('node:child_process');
+
+const gzip = util.promisify(zlib.gzip);
+const brotli = util.promisify(zlib.brotliCompress);
 const execFile = util.promisify(childProcess.execFile);
+
+async function brotliFile (input, output) {
+  const buffer = await fs.readFile(input);
+  const compressed = await brotli(buffer);
+  await fs.writeFile(output, compressed);
+}
+
+async function gzipFile (input, output) {
+  const buffer = await fs.readFile(input);
+  const compressed = await gzip(buffer);
+  await fs.writeFile(output, compressed);
+}
 
 async function safeExecFile (file, args, options) {
   try {
@@ -39,6 +56,12 @@ async function safeUnlink (file) {
   }
 }
 
+function md5sum (content) {
+  return crypto.createHash('md5').
+    update(content).
+    digest('hex');
+}
+
 async function spawn (command, args, options, handlers = {}) {
   return new Promise((resolve) => {
     const child = childProcess.spawn(command, args, options);
@@ -67,7 +90,12 @@ async function spawn (command, args, options, handlers = {}) {
 }
 
 module.exports = {
+  brotli,
+  brotliFile,
   execFile,
+  gzip,
+  gzipFile,
+  md5sum,
   safeExecFile,
   safeRmdir,
   safeStat,

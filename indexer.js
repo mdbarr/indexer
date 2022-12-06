@@ -11,6 +11,7 @@ const { ProgressBar } = require('barrkeep/progress');
 const { EventBus } = require('@hyperingenuity/events');
 
 const Image = require('./image');
+const Text = require('./text');
 const Video = require('./video');
 const defaults = require('./defaults');
 
@@ -27,6 +28,7 @@ class Indexer extends EventBus {
     this.elastic = require('./elastic')(this, options);
 
     this.image = new Image(this);
+    this.text = new Text(this);
     this.video = new Video(this);
 
     this.stats = {
@@ -56,6 +58,12 @@ class Indexer extends EventBus {
         switch (type) {
           case 'image':
             await this.image.converter({
+              file,
+              slot,
+            });
+            break;
+          case 'text':
+            await this.text.converter({
               file,
               slot,
             });

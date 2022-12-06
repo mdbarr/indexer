@@ -31,8 +31,8 @@ module.exports = {
       enabled: true,
     },
     text: {
-      pattern: /\.(md|text|txt)$/i,
-      enabled: false,
+      pattern: /\.(text|txt)$/i,
+      enabled: true,
     },
     video: {
       pattern: /\.(asf|avi|divx|flv|mkv|mov|mpe?g|mp4|mts|m[14]v|ts|vob|webm|wmv|3gp)$/i,
@@ -68,9 +68,12 @@ module.exports = {
   text: {
     shasum,
     compress: true,
+    format: 'br',
+    save,
     delete: false,
     canSkip: true,
     dropTags: false,
+    processor: null,
     tagger,
   },
   video: {

@@ -131,13 +131,13 @@ module.exports = {
       'error', {
         ObjectExpression: {
           multiline: true,
-          minProperties: 2,
+          minProperties: 5,
         },
-        ObjectPattern: { minProperties: 3 },
-        ImportDeclaration: { minProperties: 3 },
+        ObjectPattern: { minProperties: 5 },
+        ImportDeclaration: { minProperties: 5 },
         ExportDeclaration: {
           multiline: true,
-          minProperties: 3,
+          minProperties: 5,
         },
       },
     ],

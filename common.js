@@ -107,9 +107,9 @@ function Common (indexer, config) {
       return model;
     }
 
-    this.indexer.log.info(`tagging ${ model.name }`);
+    indexer.log.info(`tagging ${ model.name }`);
 
-    await config.tagger(model, this.indexer.config);
+    await config.tagger(model, indexer.config);
     model.metadata.updated = Date.now();
     return model;
   };

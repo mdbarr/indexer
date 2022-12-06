@@ -3,12 +3,12 @@
 const { join } = require('node:path');
 const fs = require('node:fs/promises');
 const { Spinner } = require('barrkeep/progress');
-const { execFile } = require('./utils');
+const { brotli, execFile, gzip, md5sum } = require('./utils');
 
-class Image {
+class Text {
   constructor (indexer) {
     this.indexer = indexer;
-    this.config = indexer.config.image;
+    this.config = indexer.config.text;
 
     this.common = require('./common')(indexer, this.config);
   }
@@ -16,10 +16,9 @@ class Image {
   //////////
 
   model ({
-    id, hash, occurrence, occurrences, output, stat,
-    thumbnail, details,
+    id, occurrence, occurrences, output, stat,
   }) {
-    const sources = new Set([ id, hash ]);
+    const sources = new Set([ id ]);
     if (occurrence) {
       sources.add(occurrence.id);
     }
@@ -31,20 +30,26 @@ class Image {
 
     const timestamp = Date.now();
 
+    let compression = false;
+    if (this.config.compress && (this.config.format === 'br' || this.config.format === 'brotli')) {
+      output += '.br';
+      compression = 'brotli';
+    } else if (this.config.compress && (this.config.format === 'gz' || this.config.format === 'gzip')) {
+      output += '.gz';
+      compression = 'gzip';
+    }
+
     const model = {
       id,
-      object: 'image',
+      object: 'text',
       version: this.indexer.config.version,
       name: occurrence.name,
       description: '',
-      hash,
+      hash: null,
       sources: Array.from(sources),
       relative: output.replace(this.config.save, '').replace(/^\//, ''),
-      thumbnail: thumbnail.replace(this.config.save, '').replace(/^\//, ''),
       size: stat.size,
-      aspect: details.aspect,
-      width: details.width,
-      height: details.height,
+      compression,
       metadata: {
         created: new Date(stat.mtime).getTime(),
         added: timestamp,
@@ -66,58 +71,11 @@ class Image {
 
   //////////
 
-  identifyParser (data, object) {
-    const stack = [ object ];
-
-    for (const line of data) {
-      let [ key, value ] = line.split(/: /);
-      const depth = key.replace(/^(\s+).*$/, '$1').length / 2 - 1;
-
-      key = key.trim().toLowerCase().
-        replace(/\s/g, '-').
-        replace(/:$/, '');
-
-      if (!value) {
-        stack[depth][key] = {};
-        stack[depth + 1] = stack[depth][key];
-      } else {
-        value = value.trim();
-
-        if (value === 'True' || value === 'true') {
-          value = true;
-        } else if (value === 'False' || value === 'false') {
-          value = false;
-        } else if (value === 'Undefined' || value === 'undefined') {
-          value = undefined;
-        } else if (Number(value).toString() === value) {
-          value = Number(value);
-        }
-
-        stack[depth][key] = value;
-
-        if (key === 'geometry') {
-          stack[depth].width = parseInt(value.replace(/^(\d+)x\d+\+.*$/, '$1'), 10);
-          stack[depth].height = parseInt(value.replace(/^\d+x(\d+)\+.*$/, '$1'), 10);
-          stack[depth].aspect = stack[depth].width / stack[depth].height;
-        }
-      }
-    }
-    return object;
-  }
-
   async examine (file) {
     this.indexer.log.info(`examining ${ file }`);
     const stat = await fs.stat(file);
 
-    this.indexer.log.info(`probing detailed information for ${ file }`);
-
-    const { stdout } = await execFile(this.config.identify, [ '-verbose', file ]);
-    const data = stdout.trim().split(/\n/);
-    data.shift();
-
-    const details = this.identifyParser(data, {});
-
-    return [ stat, details ];
+    return stat;
   }
 
   //////////
@@ -189,13 +147,10 @@ class Image {
     }
 
     this.indexer.log.info(`no match for ${ id }`);
-    const [ stat, details ] = await this.examine(file);
-    if (!stat || !details) {
-      return;
-    }
+    const stat = await this.examine(file);
 
     slot.spinner.stop();
-    slot.spinner.prepend = scrollName('  Generating thumbnail and metadata for $name ');
+    slot.spinner.prepend = scrollName('  Processing and generating metadata for $name ');
     slot.spinner.start();
 
     occurrence.size = stat.size;
@@ -205,25 +160,10 @@ class Image {
     const filename = id.substring(2);
 
     const output = join(directory, `${ filename }.${ extension }`);
-    const thumbnail = join(directory, `${ filename }p.${ this.config.thumbnail.format }`);
 
     await fs.mkdir(directory, { recursive: true });
 
-    this.indexer.log.info(`${ output } - ${ thumbnail }`);
-
-    await fs.copyFile(file, output);
-
-    const thumbnailArgs = this.config.resize.
-      trim().
-      split(/\s+/).
-      map((arg) => arg.replace('$thumbnail', thumbnail).
-        replace('$input', output).
-        replace('$geometry', `${ this.config.thumbnail.width }x${ this.config.thumbnail.height }`));
-
-    this.indexer.log.info(`generating thumbnail ${ thumbnail }`);
-
-    await execFile(this.config.convert, thumbnailArgs);
-    this.indexer.log.info(`generated thumbnail ${ thumbnail }`);
+    this.indexer.log.info(`${ output }`);
 
     const model = this.model({
       id,
@@ -232,13 +172,51 @@ class Image {
       occurrences: slot.occurrences,
       output,
       stat,
-      thumbnail,
-      details,
     });
 
+    let text = await fs.readFile(file);
+    text = text.toString();
+
+    if (typeof this.config.processor === 'function') {
+      text = await this.config.processor(model, text);
+    }
+
+    model.hash = md5sum(text);
+
+    if (model.hash !== model.id) {
+      const duplicate = await this.common.lookup(model.hash);
+      if (duplicate) {
+        this.indexer.log.info(`match for converted ${ model.hash } found`);
+        await this.common.duplicate(duplicate, occurrence);
+        return;
+      }
+    }
+
+    const sources = new Set(model.sources);
+    sources.add(model.hash);
+    model.sources = Array.from(sources);
+
+    model.contents = text;
     await this.common.tag(model);
+    text = model.contents;
+
+    delete model.contents;
+
+    let buffer = text;
+    if (model.compression === 'brotli') {
+      buffer = await brotli(text);
+    } else if (model.compression === 'gzip') {
+      buffer = await gzip(text);
+    }
+
+    await fs.writeFile(output, buffer);
+
+    const details = await this.examine(output);
+    model.size = details.size;
 
     await this.indexer.database.media.insertOne(model);
+
+    this.indexer.log.info(JSON.stringify(model, null, 2));
 
     slot.spinner.stop();
 
@@ -246,4 +224,4 @@ class Image {
   }
 }
 
-module.exports = Image;
+module.exports = Text;

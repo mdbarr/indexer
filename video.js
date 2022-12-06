@@ -1,8 +1,8 @@
 'use strict';
 
-const fs = require('fs/promises');
-const { join } = require('path');
 const subtitle = require('subtitle');
+const { join } = require('node:path');
+const fs = require('node:fs/promises');
 const style = require('barrkeep/style');
 const { ProgressBar, Spinner } = require('barrkeep/progress');
 const {
@@ -207,9 +207,7 @@ class Video {
     return sound;
   }
 
-  async extractSubtitles ({
-    file, details, output,
-  }) {
+  async extractSubtitles ({ file, details, output }) {
     if (hasSubtitles(details)) {
       let subtitleArgs = this.config.subtitle.
         trim().
@@ -474,8 +472,8 @@ class Video {
       this.indexer.log.info(`match for converted ${ hash } found`);
       await this.common.duplicate(duplicate, occurrence);
       await safeUnlink(output);
-      slot.spinner.stop();
       await safeRmdir(directory);
+      return;
     }
     this.indexer.log.info(`no duplicates of ${ output } (${ hash }) found`);
 

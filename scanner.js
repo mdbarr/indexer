@@ -99,6 +99,10 @@ class Scanner {
 
           for (const type in types) {
             if (types[type].enabled && anymatch(types[type].pattern, path)) {
+              if (types[type].exclude && anymatch(types[type].exclude, path)) {
+                break;
+              }
+
               kind = type;
               break;
             }
