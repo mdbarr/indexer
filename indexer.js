@@ -36,6 +36,9 @@ class Indexer extends EventBus {
       failed: 0,
       duplicates: 0,
       skipped: 0,
+      images: 0,
+      text: 0,
+      videos: 0,
     };
 
     this.progressMax = Math.min(60, process.stdout.columns - 80);

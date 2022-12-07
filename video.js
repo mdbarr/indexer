@@ -4,6 +4,7 @@ const subtitle = require('subtitle');
 const { join } = require('node:path');
 const fs = require('node:fs/promises');
 const style = require('barrkeep/style');
+const { createReadStream } = require('node:fs');
 const { ProgressBar, Spinner } = require('barrkeep/progress');
 const {
   execFile, safeExecFile, safeRmdir, safeStat, safeUnlink, spawn,
@@ -259,7 +260,7 @@ class Video {
   async extractSubtitlesText (file) {
     return new Promise((resolve) => {
       const data = [];
-      return fs.createReadStream(file).
+      return createReadStream(file).
         pipe(subtitle.parse()).
         on('data', node => {
           if (node.data && node.data.text) {
@@ -404,10 +405,12 @@ class Video {
       slow++;
     };
 
+    const subtitlesFile = join(directory, `${ filename }.${ this.config.subtitleFormat }`);
+
     const subtitles = await this.extractSubtitles({
       file,
       details,
-      output: join(directory, `${ filename }.${ this.config.subtitleFormat }`),
+      output: subtitlesFile,
     });
 
     const convertArgs = this.config.convert.
@@ -515,10 +518,14 @@ class Video {
       converted,
       thumbnail,
       preview,
-      subtitles: Boolean(subtitles),
+      subtitles: subtitles ? subtitlesFile : false,
       info,
       sound,
     });
+
+    if (subtitles && this.config.subtitlesToDescription) {
+      model.description = subtitles;
+    }
 
     await this.common.tag(model);
 
@@ -533,6 +540,7 @@ class Video {
 
     slot.spinner.stop();
 
+    this.indexer.stats.videos++;
     this.indexer.stats.converted++;
   }
 }

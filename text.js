@@ -213,8 +213,11 @@ class Text {
 
     await this.indexer.database.media.insertOne(model);
 
+    await this.delete(file);
+
     slot.spinner.stop();
 
+    this.indexer.stats.text++;
     this.indexer.stats.converted++;
   }
 }

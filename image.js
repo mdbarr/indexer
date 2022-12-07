@@ -241,8 +241,11 @@ class Image {
 
     await this.indexer.database.media.insertOne(model);
 
+    await this.delete(file);
+
     slot.spinner.stop();
 
+    this.indexer.stats.images++;
     this.indexer.stats.converted++;
   }
 }

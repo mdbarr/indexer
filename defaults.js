@@ -78,6 +78,7 @@ module.exports = {
     subtitleLanguage: 'eng',
     subtitleFallback: '-i $input $output -y',
     subtitle: '-i $input -map 0:m:language:$language? $output -y',
+    subtitlesToDescription: true,
     format: 'mp4',
     framerate: 30,
     thumbnailFormat: 'png',
