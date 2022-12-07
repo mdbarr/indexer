@@ -34,18 +34,18 @@ class Scanner {
       const { directory, depth } = data;
 
       if (depth > maxDepth) {
-        this.log.info(`scanner: skipping deep directory ${ directory }, depth ${ depth }`);
+        this.log.verbose(`scanner: skipping deep directory ${ directory }, depth ${ depth }`);
       }
 
       if (this.seen.has(directory)) {
-        this.log.info(`scanner: skipping seen directory ${ directory }`);
+        this.log.verbose(`scanner: skipping seen directory ${ directory }`);
         return;
       }
 
       this.seen.add(directory);
       this.stats.directories++;
 
-      this.log.info(`scanner: scanning ${ directory }`);
+      this.log.verbose(`scanner: scanning ${ directory }`);
       const entries = await fs.readdir(directory, { withFileTypes: true });
 
       if (sort) {
@@ -79,7 +79,7 @@ class Scanner {
 
         const path = await this.realpath(directory, entry);
         if (this.seen.has(path)) {
-          this.log.info(`scanner: skipping seen entry ${ path }`);
+          this.log.verbose(`scanner: skipping seen entry ${ path }`);
           return;
         }
 
@@ -89,7 +89,7 @@ class Scanner {
             return;
           }
 
-          this.log.info(`scanner: queueing directory ${ path }`);
+          this.log.verbose(`scanner: queueing directory ${ path }`);
           this.queue.push({
             directory: path,
             depth: depth + 1,
@@ -146,7 +146,7 @@ class Scanner {
     await async.each(directories, async (directory) => {
       const path = await fs.realpath(directory);
 
-      this.log.info(`scanner: adding directory ${ directory }`);
+      this.log.verbose(`scanner: adding directory ${ directory }`);
 
       this.queue.push({
         directory: path,

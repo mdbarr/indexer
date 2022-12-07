@@ -17,14 +17,14 @@ function Common (indexer, config) {
 
   this.delete = async (file) => {
     if (this.shouldDelete(file)) {
-      indexer.log.info(`deleting ${ file }`);
+      indexer.log.verbose(`deleting ${ file }`);
       await fs.unlink(file);
-      indexer.log.info(`deleted ${ file }`);
+      indexer.log.verbose(`deleted ${ file }`);
     }
   };
 
   this.duplicate = async (model, occurrence) => {
-    indexer.log.info(`updating metadata for ${ model.id }`);
+    indexer.log.verbose(`updating metadata for ${ model.id }`);
     indexer.stats.duplicates++;
 
     let found = false;
@@ -35,7 +35,7 @@ function Common (indexer, config) {
       }
     }
     if (found) {
-      indexer.log.info(`existing occurrence found for ${ occurrence.file }`);
+      indexer.log.verbose(`existing occurrence found for ${ occurrence.file }`);
     } else {
       model.metadata.occurrences.push(occurrence);
     }
@@ -49,12 +49,12 @@ function Common (indexer, config) {
     }
     model.sources = Array.from(sources);
 
-    indexer.log.info(`updating tags for ${ occurrence.id }`);
+    indexer.log.verbose(`updating tags for ${ occurrence.id }`);
     const update = await this.tag(model);
 
     await indexer.database.media.replaceOne({ id: model.id }, update);
 
-    indexer.log.info(`metadata updated for ${ model.id }`);
+    indexer.log.verbose(`metadata updated for ${ model.id }`);
 
     await this.delete(occurrence.file);
 
@@ -149,7 +149,7 @@ function Common (indexer, config) {
       return model;
     }
 
-    indexer.log.info(`tagging ${ model.name }`);
+    indexer.log.verbose(`tagging ${ model.name }`);
 
     await config.tagger(model, indexer.config);
     model.metadata.updated = Date.now();

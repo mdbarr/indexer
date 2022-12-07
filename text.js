@@ -64,7 +64,7 @@ class Text {
   //////////
 
   async examine (file) {
-    this.indexer.log.info(`examining ${ file }`);
+    this.indexer.log.verbose(`examining ${ file }`);
     const stat = await fs.stat(file);
 
     return stat;
@@ -76,7 +76,7 @@ class Text {
     const skip = await this.common.skipFile(file);
 
     if (skip) {
-      this.indexer.log.info(`skipping file due to existing entry ${ file }`);
+      this.indexer.log.verbose(`skipping file due to existing entry ${ file }`);
       this.indexer.stats.skipped++;
       return;
     }
@@ -85,12 +85,12 @@ class Text {
 
     this.common.spinner(slot, '  Fingerprinting $name ', `${ name }.${ extension }`);
 
-    this.indexer.log.info(`hashing ${ file }`);
+    this.indexer.log.verbose(`hashing ${ file }`);
     const { stdout: sha } = await execFile(this.config.shasum, [ file ]);
 
     const [ id ] = sha.trim().split(/\s+/);
 
-    this.indexer.log.info(`hashed ${ file }: ${ id }`);
+    this.indexer.log.verbose(`hashed ${ file }: ${ id }`);
 
     const occurrence = {
       id,
@@ -102,7 +102,7 @@ class Text {
 
     for (let i = 0; i < this.indexer.slots.length; i++) {
       if (this.indexer.slots[i] && this.indexer.slots[i].index !== slot.index && this.indexer.slots[i].id === id) {
-        this.indexer.log.info(`slot ${ i } is already processing ${ id }`);
+        this.indexer.log.verbose(`slot ${ i } is already processing ${ id }`);
         this.indexer.slots[i].occurrences.push(occurrence);
         return;
       }
@@ -114,12 +114,12 @@ class Text {
     const item = await this.common.lookup(id);
 
     if (item) {
-      this.indexer.log.info(`match for ${ id } found`);
+      this.indexer.log.verbose(`match for ${ id } found`);
       await this.duplicate(item, occurrence);
       return;
     }
 
-    this.indexer.log.info(`no match for ${ id }`);
+    this.indexer.log.verbose(`no match for ${ id }`);
     const stat = await this.examine(file);
 
     slot.spinner.stop();
@@ -141,7 +141,7 @@ class Text {
 
     await fs.mkdir(directory, { recursive: true });
 
-    this.indexer.log.info(`${ output }`);
+    this.indexer.log.verbose(`${ output }`);
 
     const model = this.model({
       id,
@@ -164,7 +164,7 @@ class Text {
     if (model.hash !== model.id) {
       const duplicate = await this.common.lookup(model.hash);
       if (duplicate) {
-        this.indexer.log.info(`match for converted ${ model.hash } found`);
+        this.indexer.log.verbose(`match for converted ${ model.hash } found`);
         await this.common.duplicate(duplicate, occurrence);
         return;
       }
@@ -183,7 +183,7 @@ class Text {
       const Summarizer = new SummarizerManager(normalized, this.config.summarize);
       const summary = await Summarizer.getSummaryByRank();
       model.description = summary.summary.replace(/\.(["A-Z])/g, '. $1');
-      this.indexer.log.info(`summary: ${ model.description }`);
+      this.indexer.log.verbose(`summary: ${ model.description }`);
     }
 
     model.contents = text;
@@ -212,6 +212,8 @@ class Text {
 
     this.indexer.stats.text++;
     this.indexer.stats.converted++;
+
+    this.indexer.log.info(`[text] indexed ${ file } -> ${ id }`);
   }
 }
 

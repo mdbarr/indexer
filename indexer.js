@@ -79,8 +79,7 @@ class Indexer extends EventBus {
             break;
         }
       } catch (error) {
-        this.log.error(`error in processing ${ type } ${ file }:`);
-        this.log.error(error.toString());
+        this.log.error(`[error] ${ type } ${ file }:`);
         this.log.error(error.stack.toString());
         this.stats.failed++;
       }

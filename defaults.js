@@ -97,6 +97,7 @@ module.exports = {
   },
   // Logging
   logs: {
+    clear: true,
     combined: join(process.cwd(), 'indexer.log'),
     error: join(process.cwd(), 'error.log'),
   },

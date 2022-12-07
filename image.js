@@ -106,10 +106,10 @@ class Image {
   }
 
   async examine (file) {
-    this.indexer.log.info(`examining ${ file }`);
+    this.indexer.log.verbose(`examining ${ file }`);
     const stat = await fs.stat(file);
 
-    this.indexer.log.info(`probing detailed information for ${ file }`);
+    this.indexer.log.verbose(`probing detailed information for ${ file }`);
 
     const { stdout } = await execFile(this.config.identify, [ '-verbose', file ]);
     const data = stdout.trim().split(/\n/);
@@ -126,7 +126,7 @@ class Image {
     const skip = await this.common.skipFile(file);
 
     if (skip) {
-      this.indexer.log.info(`skipping file due to existing entry ${ file }`);
+      this.indexer.log.verbose(`skipping file due to existing entry ${ file }`);
       this.indexer.stats.skipped++;
       return;
     }
@@ -135,12 +135,12 @@ class Image {
 
     this.common.spinner(slot, '  Fingerprinting $name ', `${ name }.${ extension }`);
 
-    this.indexer.log.info(`hashing ${ file }`);
+    this.indexer.log.verbose(`hashing ${ file }`);
     const { stdout: sha } = await execFile(this.config.shasum, [ file ]);
 
     const [ id ] = sha.trim().split(/\s+/);
 
-    this.indexer.log.info(`hashed ${ file }: ${ id }`);
+    this.indexer.log.verbose(`hashed ${ file }: ${ id }`);
 
     const occurrence = {
       id,
@@ -152,7 +152,7 @@ class Image {
 
     for (let i = 0; i < this.indexer.slots.length; i++) {
       if (this.indexer.slots[i] && this.indexer.slots[i].index !== slot.index && this.indexer.slots[i].id === id) {
-        this.indexer.log.info(`slot ${ i } is already processing ${ id }`);
+        this.indexer.log.verbose(`slot ${ i } is already processing ${ id }`);
         this.indexer.slots[i].occurrences.push(occurrence);
         return;
       }
@@ -164,12 +164,12 @@ class Image {
     const item = await this.common.lookup(id);
 
     if (item) {
-      this.indexer.log.info(`match for ${ id } found`);
+      this.indexer.log.verbose(`match for ${ id } found`);
       await this.duplicate(item, occurrence);
       return;
     }
 
-    this.indexer.log.info(`no match for ${ id }`);
+    this.indexer.log.verbose(`no match for ${ id }`);
     const [ stat, details ] = await this.examine(file);
     if (!stat || !details) {
       return;
@@ -190,7 +190,7 @@ class Image {
 
     await fs.mkdir(directory, { recursive: true });
 
-    this.indexer.log.info(`${ output } - ${ thumbnail }`);
+    this.indexer.log.verbose(`${ output } - ${ thumbnail }`);
 
     await fs.copyFile(file, output);
 
@@ -201,10 +201,10 @@ class Image {
         replace('$input', output).
         replace('$geometry', `${ this.config.thumbnail.width }x${ this.config.thumbnail.height }`));
 
-    this.indexer.log.info(`generating thumbnail ${ thumbnail }`);
+    this.indexer.log.verbose(`generating thumbnail ${ thumbnail }`);
 
     await execFile(this.config.convert, thumbnailArgs);
-    this.indexer.log.info(`generated thumbnail ${ thumbnail }`);
+    this.indexer.log.verbose(`generated thumbnail ${ thumbnail }`);
 
     const model = this.model({
       id,
@@ -220,6 +220,7 @@ class Image {
     await this.common.tag(model);
 
     await this.indexer.database.media.insertOne(model);
+    this.indexer.log.verbose(`inserted image ${ name } (${ id }) into db`);
 
     await this.common.delete(file);
 
@@ -227,6 +228,8 @@ class Image {
 
     this.indexer.stats.images++;
     this.indexer.stats.converted++;
+
+    this.indexer.log.info(`[image] indexed ${ file } -> ${ id }`);
   }
 }
 
