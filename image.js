@@ -2,7 +2,6 @@
 
 const { join } = require('node:path');
 const fs = require('node:fs/promises');
-const { Spinner } = require('barrkeep/progress');
 const { execFile } = require('./utils');
 
 class Image {
@@ -134,26 +133,7 @@ class Image {
 
     const [ , name, extension ] = file.match(/([^/]+)\.([^.]+)$/);
 
-    const scrollName = this.common.nameScroller(name, extension);
-
-    let slow = 0;
-
-    slot.spinner = new Spinner({
-      prepend: scrollName('  Fingerprinting $name '),
-      spinner: 'dots4',
-      style: 'fg: DodgerBlue1',
-      x: 0,
-      y: slot.y,
-    });
-
-    slot.spinner.start();
-
-    slot.spinner.onTick = () => {
-      if (slow % 2 === 0) {
-        slot.spinner.prepend = scrollName();
-      }
-      slow++;
-    };
+    this.common.spinner(slot, '  Fingerprinting $name ', `${ name }.${ extension }`);
 
     this.indexer.log.info(`hashing ${ file }`);
     const { stdout: sha } = await execFile(this.config.shasum, [ file ]);
@@ -196,8 +176,8 @@ class Image {
     }
 
     slot.spinner.stop();
-    slot.spinner.prepend = scrollName('  Generating thumbnail and metadata for $name ');
-    slot.spinner.start();
+
+    this.common.spinner(slot, '  Generating thumbnail and metadata for $name ', `${ name }.${ extension }`);
 
     occurrence.size = stat.size;
     occurrence.timestamp = new Date(stat.mtime).getTime();
@@ -241,7 +221,7 @@ class Image {
 
     await this.indexer.database.media.insertOne(model);
 
-    await this.delete(file);
+    await this.common.delete(file);
 
     slot.spinner.stop();
 

@@ -67,6 +67,7 @@ module.exports = {
   text: {
     compression: 'brotli',
     processor: null,
+    summarize: 5,
   },
   video: {
     ffmpeg: '/usr/bin/ffmpeg',

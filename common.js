@@ -1,6 +1,8 @@
 'use strict';
 
+const fs = require('node:fs/promises');
 const style = require('barrkeep/style');
+const { Spinner } = require('barrkeep/progress');
 
 function Common (indexer, config) {
   this.configure = () => {
@@ -10,6 +12,14 @@ function Common (indexer, config) {
       if (config[key] === undefined) {
         config[key] = indexer.config[key];
       }
+    }
+  };
+
+  this.delete = async (file) => {
+    if (this.shouldDelete(file)) {
+      indexer.log.info(`deleting ${ file }`);
+      await fs.unlink(file);
+      indexer.log.info(`deleted ${ file }`);
     }
   };
 
@@ -60,10 +70,9 @@ function Common (indexer, config) {
     ],
   });
 
-  this.nameScroller = (name, extension) => {
+  this.nameScroller = (name) => {
     const nameWidth = 25;
     let scrollStart = 0;
-
     let scrollFormat;
 
     const scrollName = (format) => {
@@ -72,7 +81,7 @@ function Common (indexer, config) {
         scrollStart = 0;
       }
 
-      let shortName = `${ name }.${ extension }`.replace(/[^\x00-\x7F]/g, '');
+      let shortName = name.replace(/[^\x00-\x7F]/g, '');
       if (shortName.length > 25) {
         shortName = shortName.substring(scrollStart, scrollStart + nameWidth);
 
@@ -110,6 +119,29 @@ function Common (indexer, config) {
       return Boolean(item);
     }
     return false;
+  };
+
+  this.spinner = (slot, format, name) => {
+    const scrollName = this.nameScroller(name);
+
+    let slow = 0;
+
+    slot.spinner = new Spinner({
+      prepend: scrollName(format),
+      spinner: 'dots4',
+      style: 'fg: DodgerBlue1',
+      x: 0,
+      y: slot.y,
+    });
+
+    slot.spinner.onTick = () => {
+      if (slow % 2 === 0) {
+        slot.spinner.prepend = scrollName();
+      }
+      slow++;
+    };
+
+    slot.spinner.start();
   };
 
   this.tag = async (model) => {

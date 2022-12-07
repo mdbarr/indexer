@@ -2,8 +2,8 @@
 
 const { join } = require('node:path');
 const fs = require('node:fs/promises');
-const { Spinner } = require('barrkeep/progress');
 const { brotli, execFile, gzip, md5sum } = require('./utils');
+const SummarizerManager = require('node-summarizer').SummarizerManager;
 
 class Text {
   constructor (indexer) {
@@ -83,26 +83,7 @@ class Text {
 
     const [ , name, extension ] = file.match(/([^/]+)\.([^.]+)$/);
 
-    const scrollName = this.common.nameScroller(name, extension);
-
-    let slow = 0;
-
-    slot.spinner = new Spinner({
-      prepend: scrollName('  Fingerprinting $name '),
-      spinner: 'dots4',
-      style: 'fg: DodgerBlue1',
-      x: 0,
-      y: slot.y,
-    });
-
-    slot.spinner.start();
-
-    slot.spinner.onTick = () => {
-      if (slow % 2 === 0) {
-        slot.spinner.prepend = scrollName();
-      }
-      slow++;
-    };
+    this.common.spinner(slot, '  Fingerprinting $name ', `${ name }.${ extension }`);
 
     this.indexer.log.info(`hashing ${ file }`);
     const { stdout: sha } = await execFile(this.config.shasum, [ file ]);
@@ -142,8 +123,8 @@ class Text {
     const stat = await this.examine(file);
 
     slot.spinner.stop();
-    slot.spinner.prepend = scrollName('  Processing and generating metadata for $name ');
-    slot.spinner.start();
+
+    this.common.spinner(slot, '  Processing and generating metadata for $name ', `${ name }.${ extension }`);
 
     occurrence.size = stat.size;
     occurrence.timestamp = new Date(stat.mtime).getTime();
@@ -193,6 +174,18 @@ class Text {
     sources.add(model.hash);
     model.sources = Array.from(sources);
 
+    if (this.config.summarize > 0) {
+      const normalized = text.replace(/[\r\n]/g, ' ').
+        replace(/[^\x00-\x7F]/g, '').
+        replace(/\s+/g, ' ').
+        replace(/\.([A-Z])/g, '. $1').
+        replace(/\.+/, '.');
+      const Summarizer = new SummarizerManager(normalized, this.config.summarize);
+      const summary = await Summarizer.getSummaryByRank();
+      model.description = summary.summary.replace(/\.(["A-Z])/g, '. $1');
+      this.indexer.log.info(`summary: ${ model.description }`);
+    }
+
     model.contents = text;
     await this.common.tag(model);
     text = model.contents;
@@ -213,7 +206,7 @@ class Text {
 
     await this.indexer.database.media.insertOne(model);
 
-    await this.delete(file);
+    await this.common.delete(file);
 
     slot.spinner.stop();
 

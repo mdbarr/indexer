@@ -5,7 +5,7 @@ const { join } = require('node:path');
 const fs = require('node:fs/promises');
 const style = require('barrkeep/style');
 const { createReadStream } = require('node:fs');
-const { ProgressBar, Spinner } = require('barrkeep/progress');
+const { ProgressBar } = require('barrkeep/progress');
 const {
   execFile, safeExecFile, safeRmdir, safeStat, safeUnlink, spawn,
 } = require('./utils');
@@ -144,14 +144,6 @@ class Video {
     return [ stat, data ];
   }
 
-  async delete (file) {
-    if (this.common.shouldDelete(file)) {
-      this.indexer.log.info(`deleting ${ file }`);
-      await fs.unlink(file);
-      this.indexer.log.info(`deleted ${ file }`);
-    }
-  }
-
   async preview (input, output, duration) {
     const interval = Math.ceil(duration / this.config.previewDuration);
 
@@ -210,6 +202,19 @@ class Video {
   }
 
   async extractSubtitles ({ file, details, output }) {
+    const existing = file.replace(/([^./]+)$/, this.config.subtitleFormat);
+
+    this.indexer.log.info(`checking for existing subtitles in ${ existing }`);
+    const stats = await safeStat(existing);
+    if (stats?.isFile()) {
+      this.indexer.log.info(`found existing subtitles in ${ existing }`);
+      await fs.copyFile(existing, output);
+
+      this.indexer.log.info(`existing subtitles copied to ${ output }`);
+      const text = await this.extractSubtitlesText(output);
+      return text;
+    }
+
     if (hasSubtitles(details)) {
       let subtitleArgs = this.config.subtitle.
         trim().
@@ -219,6 +224,7 @@ class Video {
           replace('$language', this.config.subtitleLanguage));
 
       const { error } = await safeExecFile(this.config.ffmpeg, subtitleArgs);
+
       if (!error) {
         this.indexer.log.info(`extracted subtitles to ${ output }`);
       } else {
@@ -241,20 +247,7 @@ class Video {
       return text;
     }
 
-    const existing = file.replace(/([^./]+)$/, this.config.subtitleFormat);
-
-    this.indexer.log.info(`checking for existing subtitles in ${ existing }`);
-    const stats = await safeStat(existing);
-    if (!stats || !stats.isFile()) {
-      return false;
-    }
-
-    this.indexer.log.info(`found existing subtitles in ${ existing }`);
-    await fs.copyFile(existing, output);
-
-    this.indexer.log.info(`existing subtitles copied to ${ output }`);
-    const text = await this.extractSubtitlesText(output);
-    return text;
+    return false;
   }
 
   async extractSubtitlesText (file) {
@@ -281,11 +274,27 @@ class Video {
     });
   }
 
-  async indexSubtitles (model, text) {
-    if (!model.subtitles || !text) {
-      return;
+  async subtitles ({ file, details, output }) {
+    const text = await this.extractSubtitles({
+      file,
+      details,
+      output,
+    });
+
+    if (text) {
+      const normalized = text.replace(/[^\w]+/g, '');
+      if (normalized.length) {
+        return text;
+      }
+
+      await safeUnlink(output);
+      this.indexer.log.info(`${ file } subtitles failed sanity check`);
     }
 
+    return false;
+  }
+
+  async indexSubtitles (model, text) {
     this.indexer.log.info(`indexing subtitles for ${ model.id }`);
 
     await this.indexer.elastic.client.index({
@@ -315,25 +324,7 @@ class Video {
 
     const [ , name, extension ] = file.match(/([^/]+)\.([^.]+)$/);
 
-    const scrollName = this.common.nameScroller(name, extension);
-
-    let slow = 0;
-
-    slot.spinner = new Spinner({
-      prepend: scrollName('  Fingerprinting $name '),
-      spinner: 'dots4',
-      style: 'fg: DodgerBlue1',
-      x: 0,
-      y: slot.y,
-    });
-
-    slot.spinner.start();
-    slot.spinner.onTick = () => {
-      if (slow % 2 === 0) {
-        slot.spinner.prepend = scrollName();
-      }
-      slow++;
-    };
+    this.common.spinner(slot, '  Fingerprinting $name ', `${ name }.${ extension }`);
 
     this.indexer.log.info(`hashing ${ file }`);
     const { stdout: sha } = await execFile(this.config.shasum, [ file ]);
@@ -387,6 +378,9 @@ class Video {
 
     await fs.mkdir(directory, { recursive: true });
 
+    const scrollName = this.common.nameScroller(`${ name }.${ extension }`);
+    let slow = 0;
+
     slot.progress = new ProgressBar({
       format: scrollName('  Converting $name $left$progress$right $percent ($eta remaining)'),
       total: Infinity,
@@ -407,7 +401,7 @@ class Video {
 
     const subtitlesFile = join(directory, `${ filename }.${ this.config.subtitleFormat }`);
 
-    const subtitles = await this.extractSubtitles({
+    const subtitles = await this.subtitles({
       file,
       details,
       output: subtitlesFile,
@@ -450,20 +444,7 @@ class Video {
 
     this.indexer.log.info(`converted ${ name }.${ extension }!`);
 
-    slot.spinner = new Spinner({
-      prepend: scrollName('  Generating preview and metadata for $name '),
-      spinner: 'dots4',
-      style: 'fg: DodgerBlue1',
-      x: 0,
-      y: slot.y,
-    });
-    slot.spinner.start();
-    slot.spinner.onTick = () => {
-      if (slow % 2 === 0) {
-        slot.spinner.prepend = scrollName();
-      }
-      slow++;
-    };
+    this.common.spinner(slot, '  Generating preview and metadata for $name ', `${ name }.${ extension }`);
 
     this.indexer.log.info(`checking for duplicate of ${ output }`);
     const { stdout: outputSha } = await execFile(this.config.shasum, [ output ]);
@@ -525,18 +506,17 @@ class Video {
 
     if (subtitles && this.config.subtitlesToDescription) {
       model.description = subtitles;
+      await this.indexSubtitles(model, subtitles);
     }
 
     await this.common.tag(model);
 
     this.indexer.log.info(`inserting ${ name } (${ id }) into db`);
 
-    await this.indexSubtitles(model, subtitles);
-
     await this.indexer.database.media.insertOne(model);
     this.indexer.log.info(`inserted ${ name } (${ id }) into db`);
 
-    await this.delete(file);
+    await this.common.delete(file);
 
     slot.spinner.stop();
 
