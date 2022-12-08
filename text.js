@@ -73,11 +73,8 @@ class Text {
   //////////
 
   async converter ({ file, slot }) {
-    const skip = await this.common.skipFile(file);
-
+    const skip = await this.common.skip(file);
     if (skip) {
-      this.indexer.log.verbose(`skipping file due to existing entry ${ file }`);
-      this.indexer.stats.skipped++;
       return;
     }
 
@@ -214,6 +211,11 @@ class Text {
     this.indexer.stats.converted++;
 
     this.indexer.log.info(`[text] indexed ${ file } -> ${ id }`);
+
+    this.indexer.emit({
+      type: 'indexed:text',
+      data: model,
+    });
   }
 }
 

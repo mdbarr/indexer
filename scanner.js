@@ -117,7 +117,7 @@ class Scanner {
           this.stats.files++;
 
           eventbus.emit({
-            type: `file:${ kind }`,
+            type: `scanned:${ kind }`,
             data: {
               index: this.stats.files,
               type: kind,

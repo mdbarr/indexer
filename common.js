@@ -58,6 +58,11 @@ function Common (indexer, config) {
 
     await this.delete(occurrence.file);
 
+    this.indexer.emit({
+      type: `duplicate:${ model.object }`,
+      data: model,
+    });
+
     return update;
   };
 
@@ -113,10 +118,23 @@ function Common (indexer, config) {
     return config.delete;
   };
 
-  this.skipFile = async (file) => {
+  this.skip = async (file) => {
     if (config.canSkip && !this.shouldDelete(file)) {
-      const item = await indexer.database.media.findOne({ 'metadata.occurrences.file': file });
-      return Boolean(item);
+      const model = await indexer.database.media.findOne({ 'metadata.occurrences.file': file });
+      if (model) {
+        indexer.log.verbose(`skipping file due to existing entry ${ file }`);
+        indexer.stats.skipped++;
+
+        indexer.emit({
+          type: `skipped:${ model.object }`,
+          data: {
+            model,
+            file,
+          },
+        });
+
+        return true;
+      }
     }
     return false;
   };

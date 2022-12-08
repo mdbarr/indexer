@@ -314,11 +314,8 @@ class Video {
   }
 
   async converter ({ file, slot }) {
-    const skip = await this.common.skipFile(file);
-
+    const skip = await this.common.skip(file);
     if (skip) {
-      this.indexer.log.verbose(`skipping file due to existing entry ${ file }`);
-      this.indexer.stats.skipped++;
       return;
     }
 
@@ -363,9 +360,6 @@ class Video {
 
     this.indexer.log.verbose(`no match for ${ id }`);
     const [ stat, details ] = await this.examine(file);
-    if (!stat || !details) {
-      return;
-    }
 
     occurrence.size = stat.size;
     occurrence.timestamp = new Date(stat.mtime).getTime();
@@ -439,6 +433,7 @@ class Video {
     if (code !== 0) {
       this.indexer.log.error(`failed to convert ${ name }.${ extension } - exited ${ code }`);
       this.indexer.log.error(log);
+      this.indexer.stats.failed++;
       return;
     }
 
@@ -525,6 +520,11 @@ class Video {
     this.indexer.stats.converted++;
 
     this.indexer.log.info(`[video] indexed ${ file } -> ${ id }`);
+
+    this.indexer.emit({
+      type: 'indexed:video',
+      data: model,
+    });
   }
 }
 

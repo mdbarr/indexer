@@ -133,7 +133,7 @@ class Indexer extends EventBus {
       ...this.config,
     });
 
-    this.on('file:*', (event) => {
+    this.on('scanned:*', (event) => {
       if (!this.seen.has(event.data.path)) {
         this.seen.add(event.data.path);
 
@@ -172,12 +172,15 @@ class Indexer extends EventBus {
   }
 
   printStats () {
-    console.log('  Converted:', utils.formatNumber(this.stats.converted, { numeral: true }));
-    console.log('  Failed:', utils.formatNumber(this.stats.failed, { numeral: true }));
+    console.log('  Converted: ', utils.formatNumber(this.stats.converted, { numeral: true }));
+    console.log('  Failed:    ', utils.formatNumber(this.stats.failed, { numeral: true }));
     console.log('  Duplicates:', utils.formatNumber(this.stats.duplicates, { numeral: true }));
     if (this.config.video.canSkip && !this.config.video.delete) {
-      console.log('  Skipped:', utils.formatNumber(this.stats.skipped, { numeral: true }));
+      console.log('  Skipped:   ', utils.formatNumber(this.stats.skipped, { numeral: true }));
     }
+    console.log('  Images:    ', utils.formatNumber(this.stats.images, { numeral: true }));
+    console.log('  Text:      ', utils.formatNumber(this.stats.text, { numeral: true }));
+    console.log('  Videos:    ', utils.formatNumber(this.stats.videos, { numeral: true }));
   }
 
   async start () {

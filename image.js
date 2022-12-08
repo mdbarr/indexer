@@ -123,11 +123,8 @@ class Image {
   //////////
 
   async converter ({ file, slot }) {
-    const skip = await this.common.skipFile(file);
-
+    const skip = await this.common.skip(file);
     if (skip) {
-      this.indexer.log.verbose(`skipping file due to existing entry ${ file }`);
-      this.indexer.stats.skipped++;
       return;
     }
 
@@ -171,9 +168,6 @@ class Image {
 
     this.indexer.log.verbose(`no match for ${ id }`);
     const [ stat, details ] = await this.examine(file);
-    if (!stat || !details) {
-      return;
-    }
 
     slot.spinner.stop();
 
@@ -230,6 +224,11 @@ class Image {
     this.indexer.stats.converted++;
 
     this.indexer.log.info(`[image] indexed ${ file } -> ${ id }`);
+
+    this.indexer.emit({
+      type: 'indexed:image',
+      data: model,
+    });
   }
 }
 
