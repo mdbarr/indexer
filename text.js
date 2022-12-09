@@ -177,10 +177,14 @@ class Text {
         replace(/\s+/g, ' ').
         replace(/\.([A-Z])/g, '. $1').
         replace(/\.+/, '.');
-      const Summarizer = new SummarizerManager(normalized, this.config.summarize);
-      const summary = await Summarizer.getSummaryByRank();
-      model.description = summary?.summary?.replace(/\.(["A-Z])/g, '. $1');
-      this.indexer.log.verbose(`summary: ${ model.description }`);
+      if (normalized) {
+        const Summarizer = new SummarizerManager(normalized, this.config.summarize);
+        const summary = await Summarizer.getSummaryByRank();
+        if (typeof summary?.summary === 'string') {
+          model.description = summary.summary.replace(/\.(["A-Z])/g, '. $1');
+          this.indexer.log.verbose(`summary: ${ model.description }`);
+        }
+      }
     }
 
     model.contents = text;
