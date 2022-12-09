@@ -69,17 +69,29 @@ class Image {
   identifyParser (data, object) {
     const stack = [ object ];
 
+    let last = 0;
     for (const line of data) {
       let [ key, value ] = line.split(/: /);
-      const depth = key.replace(/^(\s+).*$/, '$1').length / 2 - 1;
+      let depth = key.replace(/^(\s+).*$/, '$1').length / 2 - 1;
+      if (depth > last) {
+        depth = last + 1;
+      } else if (depth < last) {
+        depth = last;
+        last--;
+      }
 
       key = key.trim().toLowerCase().
         replace(/\s/g, '-').
         replace(/:$/, '');
 
+      if (!key) {
+        continue;
+      }
+
       if (!value) {
         stack[depth][key] = {};
         stack[depth + 1] = stack[depth][key];
+        last = depth;
       } else {
         value = value.trim();
 
@@ -102,6 +114,7 @@ class Image {
         }
       }
     }
+
     return object;
   }
 
