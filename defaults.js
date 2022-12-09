@@ -63,9 +63,11 @@ module.exports = {
       width: 320,
       height: 180,
     },
+    index: 'media-image',
   },
   text: {
     compression: 'brotli',
+    index: 'media-text',
     processor: null,
     summarize: 5,
   },
@@ -80,6 +82,7 @@ module.exports = {
     subtitleFallback: '-i $input $output -y',
     subtitle: '-i $input -map 0:m:language:$language? $output -y',
     subtitlesToDescription: true,
+    subtitlesIndex: 'media-video-subtitles',
     format: 'mp4',
     framerate: 30,
     thumbnailFormat: 'png',
@@ -94,6 +97,7 @@ module.exports = {
     ffprobe: '/usr/bin/ffprobe',
     probe: '-v quiet -print_format json -show_format -show_streams -print_format json $file',
     checkSound: true,
+    index: 'media-video',
   },
   // Logging
   logs: {
