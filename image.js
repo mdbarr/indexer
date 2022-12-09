@@ -175,7 +175,7 @@ class Image {
 
     if (item) {
       this.indexer.log.verbose(`match for ${ id } found`);
-      await this.duplicate(item, occurrence);
+      await this.common.duplicate(item, occurrence);
       return;
     }
 
