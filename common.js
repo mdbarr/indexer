@@ -58,7 +58,7 @@ function Common (indexer, config) {
 
     await this.delete(occurrence.file);
 
-    this.indexer.emit({
+    indexer.emit({
       type: `duplicate:${ model.object }`,
       data: model,
     });
