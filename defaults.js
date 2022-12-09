@@ -14,6 +14,7 @@ module.exports = {
     error: join(process.cwd(), 'error.log'),
   },
   options: {
+    cache: join(os.tmpdir(), '.indexer.cache'),
     canSkip: true,
     concurrency: 2,
     delete: false,

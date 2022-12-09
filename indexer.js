@@ -5,6 +5,7 @@ require('barrkeep/pp');
 const async = require('async');
 const logger = require('./logger');
 const Scanner = require('./scanner');
+const fs = require('node:fs/promises');
 const utils = require('barrkeep/utils');
 const style = require('barrkeep/style');
 const { ProgressBar } = require('barrkeep/progress');
@@ -94,8 +95,9 @@ class Indexer extends EventBus {
       }
     }, this.config.options.concurrency);
 
-    process.on('SIGINT', () => {
+    process.on('SIGINT', async () => {
       console.log('\x1b[H\x1b[2J\x1b[?25hCanceled.');
+      await this.writeCache();
       this.printStats();
       process.exit(0);
     });
@@ -108,9 +110,50 @@ class Indexer extends EventBus {
     };
   }
 
-  async scan () {
-    this.log.info('scanning...');
+  //////////
 
+  async loadCache () {
+    if (!this.config.options.cache) {
+      return new Set();
+    }
+
+    try {
+      await fs.stat(this.config.options.cache);
+    } catch (error) {
+      this.log.info('no existing seen cache');
+      return new Set();
+    }
+
+    try {
+      const data = await fs.readFile(this.config.options.cache);
+      const items = JSON.parse(data);
+      this.log.info(`loaded existing seen cache from ${ this.config.options.cache }`);
+      return new Set(items);
+    } catch (error) {
+      this.log.error('loading seen cache failed');
+      this.log.error(error.stack.toString());
+      return new Set();
+    }
+  }
+
+  async writeCache () {
+    if (!this.config.options.cache) {
+      return;
+    }
+
+    try {
+      const items = Array.from(this.seen);
+      await fs.writeFile(this.config.options.cache, JSON.stringify(items));
+      this.log.info(`wrote seen cache to ${ this.config.options.cache }`);
+    } catch (error) {
+      this.log.error('writing seen cache failed:');
+      this.log.error(error.stack.toString());
+    }
+  }
+
+  //////////
+
+  async scan () {
     this.progress = new ProgressBar({
       format: ' Processed $processed/$files files $left$progress$right ' +
         '$percent ($eta remaining) $spinner',
@@ -126,7 +169,7 @@ class Indexer extends EventBus {
       formatOptions: { numeral: true },
     });
 
-    this.seen = new Set();
+    this.seen = await this.loadCache();
 
     this.scanner = new Scanner({
       eventbus: this,
@@ -151,6 +194,8 @@ class Indexer extends EventBus {
       }
     });
 
+    this.log.info('scanning...');
+
     this.scanner.add(this.config.options.scan);
 
     if (this.config.scanner.persistent && this.config.scanner.rescan > 0) {
@@ -162,7 +207,11 @@ class Indexer extends EventBus {
 
     await this.queue.drain();
 
-    if (!this.config.scanner.persistent) {
+    await this.writeCache();
+
+    if (this.config.scanner.persistent) {
+      this.log.info('processing complete, awaiting next scan...');
+    } else {
       if (this.rescanner) {
         clearInterval(this.rescanner);
       }
