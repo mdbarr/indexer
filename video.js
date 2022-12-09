@@ -43,7 +43,7 @@ function hasSubtitles (details) {
 class Video {
   constructor (indexer) {
     this.indexer = indexer;
-    this.config = indexer.config.video;
+    this.config = indexer.config.types.video;
 
     this.common = require('./common')(indexer, this.config);
     this.common.configure();

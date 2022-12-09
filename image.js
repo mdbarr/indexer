@@ -7,7 +7,7 @@ const { execFile } = require('./utils');
 class Image {
   constructor (indexer) {
     this.indexer = indexer;
-    this.config = indexer.config.image;
+    this.config = indexer.config.types.image;
 
     this.common = require('./common')(indexer, this.config);
     this.common.configure();

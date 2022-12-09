@@ -8,7 +8,7 @@ const SummarizerManager = require('node-summarizer').SummarizerManager;
 class Text {
   constructor (indexer) {
     this.indexer = indexer;
-    this.config = indexer.config.text;
+    this.config = indexer.config.types.text;
 
     this.common = require('./common')(indexer, this.config);
     this.common.configure();

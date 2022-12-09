@@ -43,7 +43,7 @@ class Indexer extends EventBus {
 
     this.progressMax = Math.min(60, process.stdout.columns - 80);
 
-    this.slots = new Array(this.config.concurrency);
+    this.slots = new Array(this.config.options.concurrency);
 
     this.queue = async.queue(async ({ type, file }) => {
       const slot = {};
@@ -92,7 +92,7 @@ class Indexer extends EventBus {
         this.progress.value++;
         this.tokens.processed++;
       }
-    }, this.config.concurrency);
+    }, this.config.options.concurrency);
 
     process.on('SIGINT', () => {
       console.log('\x1b[H\x1b[2J\x1b[?25hCanceled.');
@@ -127,10 +127,13 @@ class Indexer extends EventBus {
     });
 
     this.seen = new Set();
+
     this.scanner = new Scanner({
       eventbus: this,
       log: this.log,
-      ...this.config,
+      ...this.config.options,
+      ...this.config.scanner,
+      types: this.config.types,
     });
 
     this.on('scanned:*', (event) => {
@@ -148,18 +151,18 @@ class Indexer extends EventBus {
       }
     });
 
-    this.scanner.add(this.config.scan);
+    this.scanner.add(this.config.options.scan);
 
-    if (this.config.persistent && this.config.rescan > 0) {
+    if (this.config.scanner.persistent && this.config.scanner.rescan > 0) {
       this.rescanner = setInterval(() => {
         this.scanner.clear();
-        this.scanner.add(this.config.scan);
-      }, this.config.rescan);
+        this.scanner.add(this.config.options.scan);
+      }, this.config.scanner.rescan);
     }
 
     await this.queue.drain();
 
-    if (!this.config.persistent) {
+    if (!this.config.scanner.persistent) {
       if (this.rescanner) {
         clearInterval(this.rescanner);
       }
@@ -175,9 +178,7 @@ class Indexer extends EventBus {
     console.log('  Converted: ', utils.formatNumber(this.stats.converted, { numeral: true }));
     console.log('  Failed:    ', utils.formatNumber(this.stats.failed, { numeral: true }));
     console.log('  Duplicates:', utils.formatNumber(this.stats.duplicates, { numeral: true }));
-    if (this.config.video.canSkip && !this.config.video.delete) {
-      console.log('  Skipped:   ', utils.formatNumber(this.stats.skipped, { numeral: true }));
-    }
+    console.log('  Skipped:   ', utils.formatNumber(this.stats.skipped, { numeral: true }));
     console.log('  Images:    ', utils.formatNumber(this.stats.images, { numeral: true }));
     console.log('  Text:      ', utils.formatNumber(this.stats.text, { numeral: true }));
     console.log('  Videos:    ', utils.formatNumber(this.stats.videos, { numeral: true }));

@@ -10,16 +10,16 @@ function Database (indexer, options) {
   };
 
   this.start = async () => {
-    this.client = new MongoClient(indexer.config.database.url, {
+    this.client = new MongoClient(indexer.config.services.database.url, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
 
-    indexer.log.info(`Database connecting to ${ indexer.config.database.url }...`);
+    indexer.log.info(`Database connecting to ${ indexer.config.services.database.url }...`);
     await this.client.connect();
     this.db = this.client.db();
 
-    this.media = this.db.collection(indexer.config.database.collection);
+    this.media = this.db.collection(indexer.config.services.database.collection);
 
     await dropIndex();
 
@@ -43,7 +43,7 @@ function Database (indexer, options) {
       },
     ]);
 
-    indexer.log.info(`Database successfully connected to ${ indexer.config.database.url }`);
+    indexer.log.info(`Database successfully connected to ${ indexer.config.services.database.url }`);
   };
 
   this.stop = async () => await this.client.close();
