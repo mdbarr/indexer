@@ -46,6 +46,8 @@ class Indexer extends EventBus {
 
     this.slots = new Array(this.config.options.concurrency);
 
+    this.indexed = new Set();
+
     this.queue = async.queue(async ({ type, file }) => {
       const slot = {};
 
@@ -79,6 +81,8 @@ class Indexer extends EventBus {
             });
             break;
         }
+
+        this.indexed.add(file);
       } catch (error) {
         this.log.error(`[error] ${ type } ${ file }:`);
         this.log.error(error.stack.toString());
@@ -96,8 +100,8 @@ class Indexer extends EventBus {
     }, this.config.options.concurrency);
 
     process.on('SIGINT', async () => {
-      console.log('\x1b[H\x1b[2J\x1b[?25hCanceled.');
       await this.writeCache();
+      console.log('\x1b[H\x1b[2J\x1b[?25hCanceled.');
       this.printStats();
       process.exit(0);
     });
@@ -113,26 +117,22 @@ class Indexer extends EventBus {
   //////////
 
   async loadCache () {
-    if (!this.config.options.cache) {
-      return new Set();
-    }
+    if (this.config.options.cache) {
+      try {
+        await fs.stat(this.config.options.cache);
+      } catch (error) {
+        this.log.info('no existing indexed cache');
+      }
 
-    try {
-      await fs.stat(this.config.options.cache);
-    } catch (error) {
-      this.log.info('no existing seen cache');
-      return new Set();
-    }
-
-    try {
-      const data = await fs.readFile(this.config.options.cache);
-      const items = JSON.parse(data);
-      this.log.info(`loaded existing seen cache from ${ this.config.options.cache }`);
-      return new Set(items);
-    } catch (error) {
-      this.log.error('loading seen cache failed');
-      this.log.error(error.stack.toString());
-      return new Set();
+      try {
+        const data = await fs.readFile(this.config.options.cache);
+        const items = JSON.parse(data);
+        this.log.info(`loaded existing indexed cache from ${ this.config.options.cache }`);
+        this.indexed = new Set(items);
+      } catch (error) {
+        this.log.error('loading indexed cache failed');
+        this.log.error(error.stack.toString());
+      }
     }
   }
 
@@ -142,11 +142,11 @@ class Indexer extends EventBus {
     }
 
     try {
-      const items = Array.from(this.seen);
+      const items = Array.from(this.indexed);
       await fs.writeFile(this.config.options.cache, JSON.stringify(items));
-      this.log.info(`wrote seen cache to ${ this.config.options.cache }`);
+      this.log.info(`wrote indexed cache to ${ this.config.options.cache }`);
     } catch (error) {
-      this.log.error('writing seen cache failed:');
+      this.log.error('writing indexed cache failed:');
       this.log.error(error.stack.toString());
     }
   }
@@ -154,6 +154,8 @@ class Indexer extends EventBus {
   //////////
 
   async scan () {
+    await this.loadCache();
+
     this.progress = new ProgressBar({
       format: ' Processed $processed/$files files $left$progress$right ' +
         '$percent ($eta remaining) $spinner',
@@ -169,7 +171,7 @@ class Indexer extends EventBus {
       formatOptions: { numeral: true },
     });
 
-    this.seen = await this.loadCache();
+    this.seen = new Set();
 
     this.scanner = new Scanner({
       eventbus: this,
@@ -180,18 +182,21 @@ class Indexer extends EventBus {
     });
 
     this.on('scanned:*', (event) => {
-      if (!this.seen.has(event.data.path)) {
-        this.seen.add(event.data.path);
-
-        if (event.data.index !== 1) {
-          this.progress.total++;
-        }
-        this.tokens.files++;
-        this.queue.push({
-          type: event.data.type,
-          file: event.data.path,
-        });
+      if (this.seen.has(event.data.path) || this.indexed.has(event.data.path)) {
+        return;
       }
+
+      this.seen.add(event.data.path);
+
+      if (event.data.index !== 1) {
+        this.progress.total++;
+      }
+
+      this.tokens.files++;
+      this.queue.push({
+        type: event.data.type,
+        file: event.data.path,
+      });
     });
 
     this.log.info('scanning...');
