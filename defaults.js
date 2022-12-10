@@ -1,7 +1,7 @@
 'use strict';
 
-const os = require('os');
-const { join } = require('path');
+const os = require('node:os');
+const { join } = require('node:path');
 
 const version = require('./package.json').version;
 
@@ -61,7 +61,6 @@ module.exports = {
         width: 320,
         height: 180,
       },
-
     },
     text: {
       enabled: true,

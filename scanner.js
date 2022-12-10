@@ -1,10 +1,10 @@
 'use strict';
 
-const fs = require('fs/promises');
 const async = require('async');
-const { join } = require('path');
 const logger = require('./logger');
 const anymatch = require('anymatch');
+const { join } = require('node:path');
+const fs = require('node:fs/promises');
 
 class Scanner {
   constructor ({
