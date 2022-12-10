@@ -54,6 +54,7 @@ module.exports = {
       exclude: /thumbs/i,
       convert: '/usr/bin/convert',
       identify: '/usr/bin/identify',
+      identity: '-verbose $input[0]',
       index: 'media-image',
       resize: '$input -thumbnail $geometry $thumbnail',
       thumbnail: {

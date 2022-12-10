@@ -124,7 +124,12 @@ class Image {
 
     this.indexer.log.verbose(`probing detailed information for ${ file }`);
 
-    const { stdout } = await execFile(this.config.identify, [ '-verbose', file ]);
+    const identifyArgs = this.config.identity.
+      trim().
+      split(/\s+/).
+      map((arg) => arg.replace('$input', file));
+
+    const { stdout } = await execFile(this.config.identify, identifyArgs);
     const data = stdout.trim().split(/\n/);
     data.shift();
 
