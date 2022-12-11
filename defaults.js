@@ -70,6 +70,8 @@ module.exports = {
       index: 'media-text',
       processor: null,
       summarize: 5,
+      summaryFallback: 1000,
+      threshold: 1000,
     },
     video: {
       enabled: true,

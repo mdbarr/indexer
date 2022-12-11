@@ -121,6 +121,11 @@ class Text {
 
     slot.spinner.stop();
 
+    if (stat.size < this.config.threshold) {
+      this.indexer.log.verbose(`[text] ${ file } below threshold ${ stat.size }`);
+      return;
+    }
+
     this.common.spinner(slot, '  Processing and generating metadata for $name ', `${ name }.${ extension }`);
 
     occurrence.size = stat.size;
@@ -185,6 +190,10 @@ class Text {
           this.indexer.log.verbose(`summary: ${ model.description }`);
         }
       }
+    }
+
+    if (!model.description) {
+      model.description = text.trim().substr(0, this.config.summaryFallback);
     }
 
     model.contents = text;
