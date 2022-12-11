@@ -234,7 +234,7 @@ class Video {
           map((arg) => arg.replace('$input', file).
             replace('$output', output));
 
-        const { error } = await execFile(this.config.ffmpeg, subtitleArgs);
+        const { error } = await safeExecFile(this.config.ffmpeg, subtitleArgs);
 
         if (error) {
           this.indexer.log.verbose(`failed to extract subtitles ${ error } ${ file } ${ output }`);

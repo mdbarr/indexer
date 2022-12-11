@@ -122,6 +122,7 @@ class Indexer extends EventBus {
         await fs.stat(this.config.options.cache);
       } catch (error) {
         this.log.info('no existing indexed cache');
+        return;
       }
 
       try {
