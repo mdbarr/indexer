@@ -121,8 +121,13 @@ class Text {
 
     slot.spinner.stop();
 
-    if (stat.size < this.config.threshold) {
-      this.indexer.log.verbose(`[text] ${ file } below threshold ${ stat.size }`);
+    if (stat.size < this.config.thresholds.minimum) {
+      this.indexer.log.verbose(`[text] ${ file } below threshold ${ stat.size } < ${ this.config.thresholds.minimum }`);
+      return;
+    }
+
+    if (stat.size > this.config.thresholds.maximum) {
+      this.indexer.log.verbose(`[text] ${ file } above threshold ${ stat.size } > ${ this.config.thresholds.maximum }`);
       return;
     }
 

@@ -71,7 +71,10 @@ module.exports = {
       processor: null,
       summarize: 5,
       summaryFallback: 1000,
-      threshold: 1000,
+      thresholds: {
+        minimum: 1024, // 1KB
+        maximum: 5242880, // 5MB
+      },
     },
     video: {
       enabled: true,
