@@ -134,6 +134,14 @@ class Indexer extends EventBus {
         this.log.error('loading indexed cache failed');
         this.log.error(error.stack.toString());
       }
+
+      let lastSize = this.indexed.size;
+      setInterval(async () => {
+        if (this.indexed.size > lastSize) {
+          await this.writeCache();
+          lastSize = this.indexed.size;
+        }
+      }, 600000);
     }
   }
 
