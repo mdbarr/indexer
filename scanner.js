@@ -5,6 +5,7 @@ const logger = require('./logger');
 const anymatch = require('anymatch');
 const { join } = require('node:path');
 const fs = require('node:fs/promises');
+const naturalCompare = require('natural-compare-lite');
 
 class Scanner {
   constructor ({
@@ -49,14 +50,7 @@ class Scanner {
       const entries = await fs.readdir(directory, { withFileTypes: true });
 
       if (sort) {
-        entries.sort((a, b) => {
-          if (a.name < b.name) {
-            return -1;
-          } else if (a.name > b.name) {
-            return 1;
-          }
-          return 0;
-        });
+        entries.sort((a, b) => naturalCompare(a.name.toLowerCase(), b.name.toLowerCase()));
       }
 
       await async.each(entries, async (entry) => {
