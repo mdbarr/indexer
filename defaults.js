@@ -65,7 +65,7 @@ module.exports = {
       },
     },
     text: {
-      enabled: false,
+      enabled: true,
       pattern: /\.(text|txt)$/i,
       compression: 'brotli',
       index: 'media-text',
@@ -78,7 +78,7 @@ module.exports = {
       },
     },
     video: {
-      enabled: false,
+      enabled: true,
       pattern: /\.(asf|avi|divx|flv|mkv|mov|mpe?g|mp4|mts|m[14]v|ts|vob|webm|wmv|3gp)$/i,
       checkSound: true,
       convert: '-i $input -f $format -vcodec h264 -acodec aac -pix_fmt yuv420p -profile:v' +

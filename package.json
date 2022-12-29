@@ -18,6 +18,7 @@
     "node-summarizer": "^1.0.7",
     "subtitle": "^4.2.1",
     "winston": "^3.8.2",
+    "words-count": "^2.0.2",
     "yargs": "^17.6.2"
   },
   "devDependencies": {

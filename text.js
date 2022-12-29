@@ -2,6 +2,7 @@
 
 const { join } = require('node:path');
 const fs = require('node:fs/promises');
+const wordsCount = require('words-count').default;
 const { brotli, execFile, gzip, md5sum } = require('./utils');
 const SummarizerManager = require('node-summarizer').SummarizerManager;
 
@@ -54,6 +55,7 @@ class Text {
         reviewed: false,
         private: false,
         tags: [ ],
+        words: 0,
       },
       deleted: false,
     };
@@ -167,6 +169,7 @@ class Text {
     }
 
     model.hash = md5sum(text);
+    model.metadata.words = wordsCount(text);
 
     if (model.hash !== model.id) {
       const duplicate = await this.common.lookup(model.hash);
