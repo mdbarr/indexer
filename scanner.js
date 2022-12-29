@@ -5,7 +5,7 @@ const logger = require('./logger');
 const anymatch = require('anymatch');
 const { join } = require('node:path');
 const fs = require('node:fs/promises');
-const { naturalSort } = require('barrkeep/utils');
+const { naturalCompare } = require('barrkeep/utils');
 
 class Scanner {
   constructor ({
@@ -50,7 +50,7 @@ class Scanner {
       const entries = await fs.readdir(directory, { withFileTypes: true });
 
       if (sort) {
-        entries.sort((a, b) => naturalSort(a.name.toLowerCase(), b.name.toLowerCase()));
+        entries.sort((a, b) => naturalCompare(a.name.toLowerCase(), b.name.toLowerCase()));
       }
 
       await async.each(entries, async (entry) => {
