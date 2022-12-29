@@ -57,7 +57,7 @@ module.exports = {
       identity: '-verbose $input[0]',
       index: 'media-image',
       preview: '$input -thumbnail $geometry $preview',
-      resize: '$input[0] -coalesce -thumbnail $geometry $thumbnail',
+      resize: '$input[0] -thumbnail $geometry $thumbnail',
       thumbnail: {
         format: 'png',
         width: 320,
