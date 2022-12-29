@@ -1,6 +1,6 @@
 {
   "name": "@hyperingenuity/indexer",
-  "version": "0.16.9",
+  "version": "0.17.0",
   "description": "Media indexer, converter and tagger",
   "main": "indexer.js",
   "bin": "cli.js",
