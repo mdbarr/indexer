@@ -254,7 +254,7 @@ class Indexer extends EventBus {
   }
 
   async stop () {
-    await this.database.stop();
+    await async.parallel([ this.database.stop, this.elastic.stop ]);
   }
 }
 

@@ -22,6 +22,7 @@ async function main () {
     await indexer.start();
     await indexer.scan();
     await indexer.stop();
+    process.exit(0);
   } catch (error) {
     console.log('[error]', error);
   }

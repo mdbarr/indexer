@@ -17,7 +17,7 @@ class Image {
 
   model ({
     id, hash, occurrence, occurrences, output, stat,
-    thumbnail, details,
+    thumbnail, preview, details,
   }) {
     const sources = new Set([ id, hash ]);
     if (occurrence) {
@@ -41,6 +41,7 @@ class Image {
       sources: Array.from(sources),
       relative: output.replace(this.config.save, '').replace(/^\//, ''),
       thumbnail: thumbnail.replace(this.config.save, '').replace(/^\//, ''),
+      preview: preview ? preview.replace(this.config.save, '').replace(/^\//, '') : false,
       size: stat.size,
       aspect: details.aspect,
       width: details.width,
@@ -218,6 +219,22 @@ class Image {
     await execFile(this.config.convert, thumbnailArgs);
     this.indexer.log.verbose(`generated thumbnail ${ thumbnail }`);
 
+    let preview = false;
+    if (extension === 'gif') {
+      preview = join(directory, `${ filename }p.gif`);
+      const previewArgs = this.config.preview.
+        trim().
+        split(/\s+/).
+        map((arg) => arg.replace('$preview', preview).
+          replace('$input', output).
+          replace('$geometry', `${ this.config.thumbnail.width }x${ this.config.thumbnail.height }`));
+
+      this.indexer.log.verbose(`generating preview ${ preview }`);
+
+      await execFile(this.config.convert, previewArgs);
+      this.indexer.log.verbose(`generated preview ${ preview }`);
+    }
+
     const model = this.model({
       id,
       hash: id,
@@ -226,6 +243,7 @@ class Image {
       output,
       stat,
       thumbnail,
+      preview,
       details,
     });
 
