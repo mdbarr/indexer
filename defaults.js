@@ -22,6 +22,7 @@ module.exports = {
     save: join(os.tmpdir(), 'indexer'),
     scan: process.cwd(),
     shasum: '/usr/bin/md5sum',
+    signal: 'SIGUSR1',
     tagger: async (model, config) => {
       if (config.dropTags) {
         model.metadata.tags = [];

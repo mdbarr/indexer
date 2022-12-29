@@ -219,6 +219,13 @@ class Indexer extends EventBus {
       }, this.config.scanner.rescan);
     }
 
+    if (this.config.options.signal) {
+      process.on(this.config.options.signal, () => {
+        this.scanner.clear();
+        this.scanner.add(this.config.options.scan);
+      });
+    }
+
     await this.queue.drain();
 
     await this.writeCache();
