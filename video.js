@@ -156,8 +156,8 @@ class Video {
         replace('$interval', interval));
 
     this.indexer.log.verbose(`generating preview video for ${ input }`);
-
     await execFile(this.config.ffmpeg, previewArgs);
+    await fs.chmod(output, this.config.mode);
     this.indexer.log.verbose(`generated preview video ${ output }`);
 
     return output;
@@ -209,6 +209,7 @@ class Video {
     if (stats?.isFile()) {
       this.indexer.log.verbose(`found existing subtitles in ${ existing }`);
       await fs.copyFile(existing, output);
+      await fs.chmod(output, this.config.mode);
 
       this.indexer.log.verbose(`existing subtitles copied to ${ output }`);
       const text = await this.extractSubtitlesText(output);
@@ -227,6 +228,7 @@ class Video {
 
       if (!error) {
         this.indexer.log.verbose(`extracted subtitles to ${ output }`);
+        await fs.chmod(output, this.config.mode);
       } else {
         subtitleArgs = this.config.subtitleFallback.
           trim().
@@ -241,8 +243,11 @@ class Video {
           return false;
         }
 
+        await fs.chmod(output, this.config.mode);
+
         this.indexer.log.verbose(`extracted subtitles using fallback to ${ output }`);
       }
+
       const text = await this.extractSubtitlesText(output);
       return text;
     }
@@ -431,11 +436,14 @@ class Video {
     slot.progress.done();
 
     if (code !== 0) {
+      await fs.safeUnlink(output);
       this.indexer.log.error(`failed to convert ${ name }.${ extension } - exited ${ code }`);
       this.indexer.log.error(log);
       this.indexer.stats.failed++;
       return;
     }
+
+    await fs.chmod(output, this.config.mode);
 
     this.indexer.log.verbose(`converted ${ name }.${ extension }!`);
 
@@ -474,8 +482,8 @@ class Video {
         replace('$time', timeString));
 
     this.indexer.log.verbose(`generating thumbnail ${ thumbnail }`);
-
     await execFile(this.config.ffmpeg, thumbnailArgs);
+    await fs.chmod(thumbnail, this.config.mode);
     this.indexer.log.verbose(`generated thumbnail ${ thumbnail } at ${ timeString }s`);
 
     const [ converted, info ] = await this.examine(output);

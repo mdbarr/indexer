@@ -19,6 +19,7 @@ module.exports = {
     concurrency: 2,
     delete: false,
     dropTags: false,
+    mode: 0o644,
     save: join(os.tmpdir(), 'indexer'),
     scan: process.cwd(),
     shasum: '/usr/bin/md5sum',

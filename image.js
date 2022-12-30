@@ -198,7 +198,7 @@ class Image {
     const directory = join(this.config.save, id.substring(0, 2));
     const filename = id.substring(2);
 
-    const output = join(directory, `${ filename }.${ extension }`);
+    const output = join(directory, `${ filename }.${ extension.toLowerCase() }`);
     const thumbnail = join(directory, `${ filename }p.${ this.config.thumbnail.format }`);
 
     await fs.mkdir(directory, { recursive: true });
@@ -206,6 +206,7 @@ class Image {
     this.indexer.log.verbose(`${ output } - ${ thumbnail }`);
 
     await fs.copyFile(file, output);
+    await fs.chmod(output, this.config.mode);
 
     const thumbnailArgs = this.config.resize.
       trim().
@@ -215,8 +216,8 @@ class Image {
         replace('$geometry', `${ this.config.thumbnail.width }x${ this.config.thumbnail.height }`));
 
     this.indexer.log.verbose(`generating thumbnail ${ thumbnail }`);
-
     await execFile(this.config.convert, thumbnailArgs);
+    await fs.chmod(thumbnail, this.config.mode);
     this.indexer.log.verbose(`generated thumbnail ${ thumbnail }`);
 
     let preview = false;
@@ -230,8 +231,8 @@ class Image {
           replace('$geometry', `${ this.config.thumbnail.width }x${ this.config.thumbnail.height }`));
 
       this.indexer.log.verbose(`generating preview ${ preview }`);
-
       await execFile(this.config.convert, previewArgs);
+      await fs.chmod(preview, this.config.mode);
       this.indexer.log.verbose(`generated preview ${ preview }`);
     }
 

@@ -6,7 +6,7 @@ const { Spinner } = require('barrkeep/progress');
 
 function Common (indexer, config) {
   this.configure = () => {
-    const keys = [ 'canSkip', 'delete', 'dropTags', 'save', 'shasum', 'tagger' ];
+    const keys = [ 'canSkip', 'delete', 'dropTags', 'mode', 'save', 'shasum', 'tagger' ];
 
     for (const key of keys) {
       if (config[key] === undefined) {

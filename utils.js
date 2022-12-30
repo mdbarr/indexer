@@ -22,6 +22,14 @@ async function gzipFile (input, output) {
   await fs.writeFile(output, compressed);
 }
 
+async function safeChmod (file, mode) {
+  try {
+    await fs.chmod(file, mode);
+  } catch (error) {
+    // no error
+  }
+}
+
 async function safeExecFile (file, args, options) {
   try {
     const result = await execFile(file, args, options);
@@ -96,6 +104,7 @@ module.exports = {
   gzip,
   gzipFile,
   md5sum,
+  safeChmod,
   safeExecFile,
   safeRmdir,
   safeStat,

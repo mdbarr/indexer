@@ -228,7 +228,7 @@ class Text {
       buffer = await gzip(text);
     }
 
-    await fs.writeFile(output, buffer);
+    await fs.writeFile(output, buffer, { mode: this.config.mode });
 
     const details = await this.examine(output);
     model.size = details.size;
