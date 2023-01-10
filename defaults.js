@@ -60,6 +60,16 @@ module.exports = {
       index: 'media-image',
       preview: '$input -thumbnail $geometry $preview',
       resize: '$input[0] -thumbnail $geometry $thumbnail',
+      thresholds: {
+        minimum: {
+          width: 128,
+          height: 128,
+        },
+        maximum: {
+          width: 10000,
+          height: 10000,
+        },
+      },
       thumbnail: {
         format: 'png',
         width: 320,

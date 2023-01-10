@@ -190,6 +190,16 @@ class Image {
 
     slot.spinner.stop();
 
+    if (details.width < this.config.thresholds.minimum.width ||
+        details.height < this.config.thresholds.minimum.height) {
+      this.indexer.log.verbose(`[image] ${ file } below size threshold ${ details.width }x${ details.height } < ${ this.config.thresholds.minimum.width }x${ this.config.thresholds.minimum.height }`);
+      return;
+    } else if (details.width > this.config.thresholds.maximum.width ||
+        details.height > this.config.thresholds.maximum.height) {
+      this.indexer.log.verbose(`[image] ${ file } above size threshold ${ details.width }x${ details.height } > ${ this.config.thresholds.maximum.width }x${ this.config.thresholds.maximum.height }`);
+      return;
+    }
+
     this.common.spinner(slot, '  Generating thumbnail and metadata for $name ', `${ name }.${ extension }`);
 
     occurrence.size = stat.size;
