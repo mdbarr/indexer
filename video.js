@@ -436,7 +436,7 @@ class Video {
     slot.progress.done();
 
     if (code !== 0) {
-      await fs.safeUnlink(output);
+      safeUnlink(output);
       this.indexer.log.error(`failed to convert ${ name }.${ extension } - exited ${ code }`);
       this.indexer.log.error(log);
       this.indexer.stats.failed++;
