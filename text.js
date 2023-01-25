@@ -1,5 +1,6 @@
 'use strict';
 
+const Common = require('./common');
 const { join } = require('node:path');
 const fs = require('node:fs/promises');
 const wordsCount = require('words-count').default;
@@ -10,9 +11,7 @@ class Text {
   constructor (indexer) {
     this.indexer = indexer;
     this.config = indexer.config.types.text;
-
-    this.common = require('./common')(indexer, this.config);
-    this.common.configure();
+    this.common = new Common(indexer, 'text', this.config);
   }
 
   //////////
@@ -34,7 +33,7 @@ class Text {
 
     const model = {
       id,
-      object: 'text',
+      object: this.config.type,
       version: this.indexer.config.version,
       name: occurrence.name,
       description: '',
@@ -233,7 +232,7 @@ class Text {
     const details = await this.examine(output);
     model.size = details.size;
 
-    await this.indexer.database.media.insertOne(model);
+    await this.common.insert(model);
 
     await this.common.delete(file);
 

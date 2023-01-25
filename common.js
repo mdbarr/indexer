@@ -4,28 +4,41 @@ const fs = require('node:fs/promises');
 const style = require('barrkeep/style');
 const { Spinner } = require('barrkeep/progress');
 
-function Common (indexer, config) {
-  this.configure = () => {
-    const keys = [ 'canSkip', 'delete', 'dropTags', 'mode', 'save', 'shasum', 'tagger' ];
+const KEYS = [ 'canSkip', 'delete', 'dropTags', 'mode', 'save', 'shasum', 'tagger' ];
 
-    for (const key of keys) {
-      if (config[key] === undefined) {
-        config[key] = indexer.config.options[key];
+class Common {
+  constructor (indexer, type, config) {
+    this.indexer = indexer;
+    this.type = type;
+    this.config = config;
+
+    for (const key of KEYS) {
+      if (this.config[key] === undefined) {
+        console.log(type, key);
+        this.config[key] = this.indexer.config.options[key];
       }
     }
-  };
+  }
 
-  this.delete = async (file) => {
-    if (this.shouldDelete(file)) {
-      indexer.log.verbose(`deleting ${ file }`);
-      await fs.unlink(file);
-      indexer.log.verbose(`deleted ${ file }`);
+  database () {
+    if (!this.collection) {
+      this.collection = this.indexer.database.collections[this.type] ||
+        this.indexer.database.collections.media;
     }
-  };
+    return this.collection;
+  }
 
-  this.duplicate = async (model, occurrence) => {
-    indexer.log.verbose(`updating metadata for ${ model.id }`);
-    indexer.stats.duplicates++;
+  async delete (file) {
+    if (this.shouldDelete(file)) {
+      this.indexer.log.verbose(`deleting ${ file }`);
+      await fs.unlink(file);
+      this.indexer.log.verbose(`deleted ${ file }`);
+    }
+  }
+
+  async duplicate (model, occurrence) {
+    this.indexer.log.verbose(`updating metadata for ${ model.id }`);
+    this.indexer.stats.duplicates++;
 
     let found = false;
     for (const item of model.metadata.occurrences) {
@@ -35,7 +48,7 @@ function Common (indexer, config) {
       }
     }
     if (found) {
-      indexer.log.verbose(`existing occurrence found for ${ occurrence.file }`);
+      this.indexer.log.verbose(`existing occurrence found for ${ occurrence.file }`);
     } else {
       model.metadata.occurrences.push(occurrence);
     }
@@ -49,33 +62,39 @@ function Common (indexer, config) {
     }
     model.sources = Array.from(sources);
 
-    indexer.log.verbose(`updating tags for ${ occurrence.id }`);
+    this.indexer.log.verbose(`updating tags for ${ occurrence.id }`);
     const update = await this.tag(model);
 
-    await indexer.database.media.replaceOne({ id: model.id }, update);
+    await this.database().replaceOne({ id: model.id }, update);
 
-    indexer.log.verbose(`metadata updated for ${ model.id }`);
+    this.indexer.log.verbose(`metadata updated for ${ model.id }`);
 
     await this.delete(occurrence.file);
 
-    indexer.emit({
+    this.indexer.emit({
       type: `duplicate:${ model.object }`,
       data: model,
     });
 
     return update;
-  };
+  }
 
-  this.lookup = async (id) => indexer.database.media.findOne({
-    $or: [
-      {
-        sources: id,
-        deleted: { $ne: true },
-      }, { sources: id }, { id }, { hash: id },
-    ],
-  });
+  async insert (model) {
+    this.database().insertOne(model);
+  }
 
-  this.nameScroller = (name) => {
+  async lookup (id) {
+    this.database().findOne({
+      $or: [
+        {
+          sources: id,
+          deleted: { $ne: true },
+        }, { sources: id }, { id }, { hash: id },
+      ],
+    });
+  }
+
+  nameScroller (name) {
     const nameWidth = 25;
     let scrollStart = 0;
     let scrollFormat;
@@ -109,23 +128,23 @@ function Common (indexer, config) {
     };
 
     return scrollName;
-  };
+  }
 
-  this.shouldDelete = (file) => {
-    if (typeof config.delete === 'function') {
-      return config.delete(file);
+  shouldDelete (file) {
+    if (typeof this.config.delete === 'function') {
+      return this.config.delete(file);
     }
-    return config.delete;
-  };
+    return this.config.delete;
+  }
 
-  this.skip = async (file) => {
-    if (config.canSkip && !this.shouldDelete(file)) {
-      const model = await indexer.database.media.findOne({ 'metadata.occurrences.file': file });
+  async skip (file) {
+    if (this.config.canSkip && !this.shouldDelete(file)) {
+      const model = await this.database().findOne({ 'metadata.occurrences.file': file });
       if (model) {
-        indexer.log.verbose(`skipping file due to existing entry ${ file }`);
-        indexer.stats.skipped++;
+        this.indexer.log.verbose(`skipping file due to existing entry ${ file }`);
+        this.indexer.stats.skipped++;
 
-        indexer.emit({
+        this.indexer.emit({
           type: `skipped:${ model.object }`,
           data: {
             model,
@@ -137,9 +156,9 @@ function Common (indexer, config) {
       }
     }
     return false;
-  };
+  }
 
-  this.spinner = (slot, format, name) => {
+  spinner (slot, format, name) {
     const scrollName = this.nameScroller(name);
 
     let slow = 0;
@@ -160,19 +179,19 @@ function Common (indexer, config) {
     };
 
     slot.spinner.start();
-  };
+  }
 
-  this.tag = async (model) => {
-    if (typeof config.tagger !== 'function') {
+  async tag (model) {
+    if (typeof this.config.tagger !== 'function') {
       return model;
     }
 
-    indexer.log.verbose(`tagging ${ model.name }`);
+    this.indexer.log.verbose(`tagging ${ model.name }`);
 
-    await config.tagger(model, indexer.config);
+    await this.config.tagger(model, this.indexer.config);
     model.metadata.updated = Date.now();
     return model;
-  };
+  }
 }
 
-module.exports = (indexer, options) => new Common(indexer, options);
+module.exports = Common;

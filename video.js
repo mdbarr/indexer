@@ -1,5 +1,6 @@
 'use strict';
 
+const Common = require('./common');
 const subtitle = require('subtitle');
 const { join } = require('node:path');
 const fs = require('node:fs/promises');
@@ -44,9 +45,7 @@ class Video {
   constructor (indexer) {
     this.indexer = indexer;
     this.config = indexer.config.types.video;
-
-    this.common = require('./common')(indexer, this.config);
-    this.common.configure();
+    this.common = new Common(indexer, 'video', this.config);
   }
 
   //////////
@@ -90,7 +89,7 @@ class Video {
 
     const model = {
       id,
-      object: 'video',
+      object: this.config.type,
       version: this.indexer.config.version,
       name: occurrence.name,
       description: '',
@@ -526,7 +525,7 @@ class Video {
 
     this.indexer.log.verbose(`inserting ${ name } (${ id }) into db`);
 
-    await this.indexer.database.media.insertOne(model);
+    await this.common.insert(model);
 
     this.indexer.log.verbose(`inserted video ${ name } (${ id }) into db`);
 

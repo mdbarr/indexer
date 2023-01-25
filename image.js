@@ -1,5 +1,6 @@
 'use strict';
 
+const Common = require('./common');
 const { join } = require('node:path');
 const fs = require('node:fs/promises');
 const { execFile } = require('./utils');
@@ -8,9 +9,7 @@ class Image {
   constructor (indexer) {
     this.indexer = indexer;
     this.config = indexer.config.types.image;
-
-    this.common = require('./common')(indexer, this.config);
-    this.common.configure();
+    this.common = new Common(indexer, 'image', this.config);
   }
 
   //////////
@@ -33,7 +32,7 @@ class Image {
 
     const model = {
       id,
-      object: 'image',
+      object: this.config.type,
       version: this.indexer.config.version,
       name: occurrence.name,
       description: '',
@@ -270,7 +269,7 @@ class Image {
     });
     await this.indexer.elastic.client.indices.refresh({ index: this.config.index });
 
-    await this.indexer.database.media.insertOne(model);
+    await this.common.insert(model);
     this.indexer.log.verbose(`inserted image ${ name } (${ id }) into db`);
 
     await this.common.delete(file);

@@ -52,12 +52,13 @@ module.exports = {
   types: {
     image: {
       enabled: true,
-      pattern: /\.(gif|png|jpeg|jpg|tiff)$/i,
-      exclude: /thumbs/i,
+      collection: 'images',
       convert: '/usr/bin/convert',
+      exclude: /thumbs/i,
       identify: '/usr/bin/identify',
       identity: '-verbose $input[0]',
       index: 'media-image',
+      pattern: /\.(gif|png|jpeg|jpg|tiff)$/i,
       preview: '$input -thumbnail $geometry $preview',
       resize: '$input[0] -thumbnail $geometry $thumbnail',
       thresholds: {
@@ -75,12 +76,14 @@ module.exports = {
         width: 320,
         height: 180,
       },
+      type: 'image',
     },
     text: {
       enabled: true,
-      pattern: /\.(text|txt)$/i,
+      collection: 'text',
       compression: 'brotli',
       index: 'media-text',
+      pattern: /\.(text|txt)$/i,
       processor: null,
       summarize: 5,
       summaryFallback: 1000,
@@ -88,11 +91,12 @@ module.exports = {
         minimum: 1024, // 1KB
         maximum: 5242880, // 5MB
       },
+      type: 'text',
     },
     video: {
       enabled: true,
-      pattern: /\.(asf|avi|divx|flv|mkv|mov|mpe?g|mp4|mts|m[14]v|ts|vob|webm|wmv|3gp)$/i,
       checkSound: true,
+      collection: 'videos',
       convert: '-i $input -f $format -vcodec h264 -acodec aac -pix_fmt yuv420p -profile:v' +
         ' baseline -level 3 -vsync 1 -r $framerate -avoid_negative_ts 1 -fflags +genpts' +
         ' -map_chapters -1 -max_muxing_queue_size 99999 -vf pad=ceil(iw/2)*2:ceil(ih/2)*2' +
@@ -102,6 +106,7 @@ module.exports = {
       format: 'mp4',
       framerate: 30,
       index: 'media-video',
+      pattern: /\.(asf|avi|divx|flv|mkv|mov|mpe?g|mp4|mts|m[14]v|ts|vob|webm|wmv|3gp)$/i,
       preview: '-i $input -an -max_muxing_queue_size 99999 -vcodec libx264 -pix_fmt yuv420p' +
         " -profile:v baseline -level 3 -vf select='lt(mod(t,$interval),1)'," +
         'setpts=N/FRAME_RATE/TB,pad=ceil(iw/2)*2:ceil(ih/2)*2 $output -y -hide_banner',
@@ -118,6 +123,7 @@ module.exports = {
       thumbnail: '-i $output -ss 00:00:$time -vframes 1 $thumbnail -y',
       thumbnailFormat: 'png',
       thumbnailTime: 5,
+      type: 'video',
     },
   },
 };
