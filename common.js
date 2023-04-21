@@ -14,7 +14,6 @@ class Common {
 
     for (const key of KEYS) {
       if (this.config[key] === undefined) {
-        console.log(type, key);
         this.config[key] = this.indexer.config.options[key];
       }
     }
@@ -80,16 +79,19 @@ class Common {
   }
 
   async insert (model) {
-    this.database().insertOne(model);
+    return this.database().insertOne(model);
   }
 
   async lookup (id) {
-    this.database().findOne({
+    return this.database().findOne({
       $or: [
+        { id },
+        { hash: id },
         {
           sources: id,
           deleted: { $ne: true },
-        }, { sources: id }, { id }, { hash: id },
+        },
+        { sources: id },
       ],
     });
   }
