@@ -87,6 +87,10 @@ class Indexer extends EventBus {
         this.log.error(`[error] ${ type } ${ file }:`);
         this.log.error(error.stack.toString());
         this.stats.failed++;
+
+        if (this.config.options.cacheFailures) {
+          this.indexed.add(file);
+        }
       }
 
       this.slots[slot.index] = false;

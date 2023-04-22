@@ -15,6 +15,7 @@ module.exports = {
   },
   options: {
     cache: join(os.tmpdir(), '.indexer.cache'),
+    cacheFailures: false,
     canSkip: true,
     concurrency: 2,
     delete: false,
@@ -52,7 +53,7 @@ module.exports = {
   types: {
     image: {
       enabled: true,
-      collection: 'images',
+      collection: 'media',
       convert: '/usr/bin/convert',
       exclude: /thumbs/i,
       identify: '/usr/bin/identify',
@@ -80,7 +81,7 @@ module.exports = {
     },
     text: {
       enabled: true,
-      collection: 'text',
+      collection: 'media',
       compression: 'brotli',
       index: 'media-text',
       pattern: /\.(text|txt)$/i,
@@ -96,7 +97,7 @@ module.exports = {
     video: {
       enabled: true,
       checkSound: true,
-      collection: 'videos',
+      collection: 'media',
       convert: '-i $input -f $format -vcodec h264 -acodec aac -pix_fmt yuv420p -profile:v' +
         ' baseline -level 3 -vsync 1 -r $framerate -avoid_negative_ts 1 -fflags +genpts' +
         ' -map_chapters -1 -max_muxing_queue_size 99999 -vf pad=ceil(iw/2)*2:ceil(ih/2)*2' +
