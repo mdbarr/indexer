@@ -299,6 +299,10 @@ class Video {
   }
 
   async indexSubtitles (model, text) {
+    if (!this.indexer.config.services.elastic.enabled) {
+      return;
+    }
+
     this.indexer.log.verbose(`indexing subtitles for ${ model.id }`);
 
     await this.indexer.elastic.client.index({
@@ -513,15 +517,17 @@ class Video {
 
     await this.common.tag(model);
 
-    await this.indexer.elastic.client.index({
-      index: this.config.index,
-      id: model.id,
-      body: {
-        name: model.name,
-        description: model.description,
-      },
-    });
-    await this.indexer.elastic.client.indices.refresh({ index: this.config.index });
+    if (this.indexer.config.services.elastic.enabled) {
+      await this.indexer.elastic.client.index({
+        index: this.config.index,
+        id: model.id,
+        body: {
+          name: model.name,
+          description: model.description,
+        },
+      });
+      await this.indexer.elastic.client.indices.refresh({ index: this.config.index });
+    }
 
     this.indexer.log.verbose(`inserting ${ name } (${ id }) into db`);
 

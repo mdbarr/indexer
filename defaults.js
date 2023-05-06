@@ -48,7 +48,10 @@ module.exports = {
       url: 'mongodb://localhost:27017/indexer',
       collection: 'media',
     },
-    elastic: { node: 'http://localhost:9200' },
+    elastic: {
+      enabled: true,
+      node: 'http://localhost:9200',
+    },
   },
   types: {
     image: {

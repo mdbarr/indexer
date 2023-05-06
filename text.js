@@ -207,16 +207,18 @@ class Text {
     await this.common.tag(model);
     text = model.contents;
 
-    await this.indexer.elastic.client.index({
-      index: this.config.index,
-      id: model.id,
-      body: {
-        name: model.name,
-        description: model.description,
-        contents: model.contents,
-      },
-    });
-    await this.indexer.elastic.client.indices.refresh({ index: this.config.index });
+    if (this.indexer.config.services.elastic.enabled) {
+      await this.indexer.elastic.client.index({
+        index: this.config.index,
+        id: model.id,
+        body: {
+          name: model.name,
+          description: model.description,
+          contents: model.contents,
+        },
+      });
+      await this.indexer.elastic.client.indices.refresh({ index: this.config.index });
+    }
 
     delete model.contents;
 

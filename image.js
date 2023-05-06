@@ -259,15 +259,17 @@ class Image {
 
     await this.common.tag(model);
 
-    await this.indexer.elastic.client.index({
-      index: this.config.index,
-      id: model.id,
-      body: {
-        name: model.name,
-        description: model.description,
-      },
-    });
-    await this.indexer.elastic.client.indices.refresh({ index: this.config.index });
+    if (this.indexer.config.services.elastic.enabled) {
+      await this.indexer.elastic.client.index({
+        index: this.config.index,
+        id: model.id,
+        body: {
+          name: model.name,
+          description: model.description,
+        },
+      });
+      await this.indexer.elastic.client.indices.refresh({ index: this.config.index });
+    }
 
     await this.common.insert(model);
     this.indexer.log.verbose(`inserted image ${ name } (${ id }) into db`);
